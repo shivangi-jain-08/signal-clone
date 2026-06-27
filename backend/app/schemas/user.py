@@ -30,3 +30,4 @@ class UpdateProfileRequest(BaseModel):
     username: str | None = Field(
         None, min_length=3, max_length=30, pattern=r"^[a-z0-9_]+$"
     )
+    avatar_url: str | None = Field(None, max_length=500)

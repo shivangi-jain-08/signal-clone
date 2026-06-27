@@ -38,6 +38,21 @@ class UserRepository(BaseRepository[User]):
         user.otp_expires_at = None
         await self.db.flush()
 
+    async def search(
+        self, query: str, exclude_id: str, limit: int = 20
+    ) -> list[User]:
+        """Case-insensitive prefix/substring search on username and display_name."""
+        pattern = f"%{query}%"
+        result = await self.db.execute(
+            select(User)
+            .where(
+                (User.username.ilike(pattern) | User.display_name.ilike(pattern))
+                & (User.id != exclude_id)
+            )
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def update(self, user: User, **kwargs: Any) -> User:
         for key, value in kwargs.items():
             setattr(user, key, value)
