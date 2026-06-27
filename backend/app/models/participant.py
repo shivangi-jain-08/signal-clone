@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, uuid4_str
+from app.models.base import Base, utcnow, uuid4_str
 
 if TYPE_CHECKING:
     from app.models.conversation import Conversation
@@ -21,7 +21,7 @@ class ConversationParticipant(Base):
     user_id: Mapped[str] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    joined_at: Mapped[datetime] = mapped_column(nullable=False)
+    joined_at: Mapped[datetime] = mapped_column(default=utcnow, nullable=False)
     last_read_at: Mapped[datetime | None] = mapped_column(nullable=True)
     is_admin: Mapped[bool] = mapped_column(default=False, nullable=False)
     is_archived: Mapped[bool] = mapped_column(default=False, nullable=False)

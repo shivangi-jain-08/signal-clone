@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, uuid4_str
+from app.models.base import Base, utcnow, uuid4_str
 
 if TYPE_CHECKING:
     from app.models.message import Message
@@ -22,7 +22,7 @@ class MessageStatus(Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     status: Mapped[str] = mapped_column(String, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow, nullable=False)
 
     message: Mapped["Message"] = relationship(back_populates="statuses")
     user: Mapped["User"] = relationship()
