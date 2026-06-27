@@ -1,0 +1,198 @@
+@import "tailwindcss";
+
+/* ─── Dark mode: class-based (.dark on <html>) ────────────────────────── */
+@custom-variant dark (&:is(.dark *));
+
+/* ─── shadcn/ui base variables (neutral palette) ─────────────────────────
+   shadcn components reference these. Signal-specific overrides follow.
+──────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 220 90% 58%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 220 90% 58%;
+    --radius: 0.5rem;
+  }
+  .dark {
+    --background: 0 0% 11%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 17%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 17%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 220 90% 58%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 23%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 23%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 23%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 23%;
+    --ring: 220 90% 58%;
+  }
+}
+
+/* ─── Signal Design Tokens ───────────────────────────────────────────────
+   Values sourced from UI_SPEC.md (screenshot analysis).
+   Registered as Tailwind utilities via @theme.
+──────────────────────────────────────────────────────────────────────────── */
+@theme inline {
+  --color-accent:           #3A76F0;
+  --color-accent-hover:     #2D65D8;
+  --color-online:           #4CAF50;
+  --color-system-badge:     #3FBA6C;
+  --color-error:            #E53935;
+  --color-nav-badge:        #E53935;
+
+  /* Sender name palette (8 colours, assigned by user ID hash mod 8) */
+  --color-sender-0:         #E57373;
+  --color-sender-1:         #4DB6AC;
+  --color-sender-2:         #7986CB;
+  --color-sender-3:         #FF8A65;
+  --color-sender-4:         #A1887F;
+  --color-sender-5:         #90A4AE;
+  --color-sender-6:         #F06292;
+  --color-sender-7:         #AED581;
+
+  /* Border radii */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+  --radius-xl:  18px;
+  --radius-full: 9999px;
+
+  /* Durations */
+  --duration-instant:  80ms;
+  --duration-fast:     150ms;
+  --duration-default:  200ms;
+  --duration-slow:     300ms;
+}
+
+/* ─── Semantic CSS variables (light mode) ────────────────────────────────── */
+:root {
+  --color-bg-app:           #FFFFFF;
+  --color-bg-sidebar:       #FFFFFF;
+  --color-bg-nav-strip:     #F5F5F5;
+  --color-bg-input:         #F0F0F0;
+  --color-bg-bubble-sent:   #3A76F0;
+  --color-bg-bubble-recv:   #F0F0F0;
+  --color-bg-item-hover:    #F5F5F5;
+  --color-bg-item-active:   #EBEBEB;
+  --color-bg-deleted-msg:   #F8F8F8;
+
+  --color-text-primary:     #111111;
+  --color-text-secondary:   #777777;
+  --color-text-tertiary:    #AAAAAA;
+  --color-text-bubble-sent: #FFFFFF;
+  --color-text-bubble-recv: #111111;
+  --color-text-timestamp:   #999999;
+  --color-text-system:      #888888;
+  --color-text-header:      #111111;
+
+  --color-border:           #E5E5E5;
+  --color-divider:          #F0F0F0;
+  --color-separator:        #E0E0E0;
+
+  --shadow-dropdown:        0 4px 12px rgba(0,0,0,0.15);
+  --shadow-modal:           0 8px 32px rgba(0,0,0,0.20);
+  --shadow-toast:           0 4px 16px rgba(0,0,0,0.18);
+}
+
+/* ─── Semantic CSS variables (dark mode) ─────────────────────────────────── */
+.dark {
+  --color-bg-app:           #1C1C1C;
+  --color-bg-sidebar:       #2C2C2C;
+  --color-bg-nav-strip:     #1C1C1C;
+  --color-bg-input:         #3A3A3A;
+  --color-bg-bubble-sent:   #3A76F0;
+  --color-bg-bubble-recv:   #2D2D2D;
+  --color-bg-item-hover:    #363636;
+  --color-bg-item-active:   #3A3A3A;
+  --color-bg-deleted-msg:   transparent;
+
+  --color-text-primary:     #FFFFFF;
+  --color-text-secondary:   #AAAAAA;
+  --color-text-tertiary:    #666666;
+  --color-text-bubble-sent: #FFFFFF;
+  --color-text-bubble-recv: #FFFFFF;
+  --color-text-timestamp:   #777777;
+  --color-text-system:      #888888;
+  --color-text-header:      #FFFFFF;
+
+  --color-border:           rgba(255,255,255,0.08);
+  --color-divider:          rgba(255,255,255,0.06);
+  --color-separator:        rgba(255,255,255,0.10);
+
+  --shadow-dropdown:        0 4px 12px rgba(0,0,0,0.40);
+  --shadow-modal:           0 8px 32px rgba(0,0,0,0.60);
+  --shadow-toast:           0 4px 16px rgba(0,0,0,0.35);
+}
+
+/* ─── Base styles ─────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  height: 100%;
+  margin: 0;
+  background-color: var(--color-bg-app);
+  color: var(--color-text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Reduced motion ──────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* ─── Thin scrollbar (webkit) ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-separator);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); }
+
+/* ─── Focus visible ───────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

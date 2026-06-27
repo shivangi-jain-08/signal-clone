@@ -1,0 +1,30 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+
+# WebSockets
+python-socketio==5.11.4
+python-engineio==4.10.1
+
+# Database
+sqlalchemy==2.0.36
+aiosqlite==0.20.0
+alembic==1.14.0
+
+# Auth
+python-jose[cryptography]==3.3.0
+
+# Validation & Settings
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# Logging
+structlog==24.4.0
+
+# HTTP client (for dev utilities)
+httpx==0.28.1
+
+# Dev / testing
+pytest==8.3.4
+pytest-asyncio==0.24.0
+httpx==0.28.1

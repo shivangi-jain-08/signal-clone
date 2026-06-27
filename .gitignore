@@ -1,0 +1,23 @@
+ui-reference
+docs
+
+# Backend
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+backend/media/
+backend/.env
+
+# Frontend
+frontend/.next/
+frontend/node_modules/
+frontend/.env.local
+frontend/out/
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
