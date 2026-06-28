@@ -69,25 +69,25 @@ def _extract_token(auth: dict | None, environ: dict) -> str | None:
     return None
 
 
-async def _authenticate(auth: dict | None, environ: dict) -> tuple[str | None, list[str]]:
-    """Decode JWT, verify session, return (user_id, conv_ids) or (None, [])."""
+async def _authenticate(auth: dict | None, environ: dict) -> tuple[str | None, str, list[str]]:
+    """Decode JWT, verify session, return (user_id, display_name, conv_ids) or (None, '', [])."""
     token = _extract_token(auth, environ)
     if not token:
-        return None, []
+        return None, "", []
 
     payload = decode_access_token(token)
     if not payload:
-        return None, []
+        return None, "", []
 
     jti: str | None = payload.get("jti")
     user_id: str | None = payload.get("sub")
     if not jti or not user_id:
-        return None, []
+        return None, "", []
 
     async with async_session_maker() as db:
         session = await SessionRepository(db).get_by_jti(jti)
         if not session:
-            return None, []
+            return None, "", []
 
         # Check expiry (SQLite stores naive UTC)
         expires = session.expires_at
@@ -95,16 +95,16 @@ async def _authenticate(auth: dict | None, environ: dict) -> tuple[str | None, l
             expires = expires.replace(tzinfo=timezone.utc)
         from datetime import datetime
         if expires < datetime.now(timezone.utc):
-            return None, []
+            return None, "", []
 
         user = await UserRepository(db).get_by_id(user_id)
         if not user:
-            return None, []
+            return None, "", []
 
         rows = await ConversationRepository(db).list_for_user(user_id, limit=500, offset=0)
         conv_ids = [conv.id for conv, _ in rows]
 
-    return user_id, conv_ids
+    return user_id, user.display_name or user.username or user_id, conv_ids
 
 
 # ---------------------------------------------------------------------------
@@ -171,12 +171,12 @@ def register_handlers(sio: socketio.AsyncServer) -> None:
 
     @sio.event
     async def connect(sid: str, environ: dict, auth: dict | None = None) -> bool:
-        user_id, conv_ids = await _authenticate(auth, environ)
+        user_id, display_name, conv_ids = await _authenticate(auth, environ)
         if not user_id:
             logger.warning("ws_auth_rejected", sid=sid)
             return False  # reject; client gets a connect_error
 
-        is_first = connection_manager.connect(sid, user_id, conv_ids)
+        is_first = connection_manager.connect(sid, user_id, conv_ids, display_name)
 
         # Join personal room and all conversation rooms
         await sio.enter_room(sid, user_room(user_id))
@@ -250,7 +250,11 @@ def register_handlers(sio: socketio.AsyncServer) -> None:
             return
         await sio.emit(
             ServerEvents.TYPING,
-            {"user_id": user_id, "conversation_id": conv_id},
+            {
+                "user_id": user_id,
+                "conversation_id": conv_id,
+                "display_name": connection_manager.get_display_name(user_id),
+            },
             room=conversation_room(conv_id),
             skip_sid=sid,
         )

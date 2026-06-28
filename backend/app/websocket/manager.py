@@ -11,15 +11,16 @@ class ConnectionManager:
         self._sid_user: dict[str, str] = {}           # sid  → user_id
         self._user_sids: dict[str, set[str]] = {}     # user_id → {sid, …}
         self._user_convs: dict[str, set[str]] = {}    # user_id → {conv_id, …}
+        self._user_name: dict[str, str] = {}           # user_id → display_name
 
-    def connect(self, sid: str, user_id: str, conv_ids: list[str]) -> bool:
+    def connect(self, sid: str, user_id: str, conv_ids: list[str], display_name: str = "") -> bool:
         """Register a new connection. Returns True if this is the user's first tab."""
         self._sid_user[sid] = user_id
         sids = self._user_sids.setdefault(user_id, set())
         first = len(sids) == 0
         sids.add(sid)
-        # Overwrite conv set — same user across tabs has the same conversations.
         self._user_convs[user_id] = set(conv_ids)
+        self._user_name[user_id] = display_name
         return first
 
     def disconnect(self, sid: str) -> tuple[str | None, bool, set[str]]:
@@ -45,6 +46,9 @@ class ConnectionManager:
 
     def get_user_id(self, sid: str) -> str | None:
         return self._sid_user.get(sid)
+
+    def get_display_name(self, user_id: str) -> str:
+        return self._user_name.get(user_id, "")
 
     def get_conv_ids(self, user_id: str) -> frozenset[str]:
         return frozenset(self._user_convs.get(user_id, set()))

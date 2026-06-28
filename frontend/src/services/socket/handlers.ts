@@ -53,7 +53,8 @@ interface ReactionUpdatedPayload {
 interface TypingPayload {
   conversation_id: string;
   user_id: string;
-  username: string;
+  display_name?: string;
+  username?: string;
 }
 
 interface UserPresencePayload {
@@ -268,7 +269,7 @@ export function registerSocketHandlers(): () => void {
   // ── Typing ─────────────────────────────────────────────────────────
   const { setTyping, clearTyping } = useTypingStore.getState();
   const onTyping = (p: TypingPayload) => {
-    setTyping(p.conversation_id, p.user_id, p.username || p.user_id);
+    setTyping(p.conversation_id, p.user_id, p.display_name || p.username || p.user_id);
   };
   const onStopTyping = (p: TypingPayload) => {
     clearTyping(p.conversation_id, p.user_id);
