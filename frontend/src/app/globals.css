@@ -92,7 +92,11 @@
 :root {
   --color-bg-app:           #FFFFFF;
   --color-bg-sidebar:       #FFFFFF;
-  --color-bg-nav-strip:     #1C1C1E;
+  --color-bg-nav-strip:     #EDEDED;
+  --color-nav-icon:         rgba(0,0,0,0.4);
+  --color-nav-icon-active:  rgba(0,0,0,0.85);
+  --color-nav-active-bg:    rgba(0,0,0,0.09);
+  --color-nav-hover-bg:     rgba(0,0,0,0.05);
   --color-bg-input:         #F0F0F0;
   --color-bg-bubble-sent:   #3A76F0;
   --color-bg-bubble-recv:   #F0F0F0;
@@ -124,6 +128,10 @@
   --color-bg-app:           #1C1C1C;
   --color-bg-sidebar:       #2C2C2C;
   --color-bg-nav-strip:     #1C1C1C;
+  --color-nav-icon:         rgba(255,255,255,0.45);
+  --color-nav-icon-active:  #ffffff;
+  --color-nav-active-bg:    rgba(255,255,255,0.13);
+  --color-nav-hover-bg:     rgba(255,255,255,0.08);
   --color-bg-input:         #3A3A3A;
   --color-bg-bubble-sent:   #3A76F0;
   --color-bg-bubble-recv:   #2D2D2D;

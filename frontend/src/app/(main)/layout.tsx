@@ -34,20 +34,20 @@ function NavRailItem({ icon: Icon, active, label, onClick }: NavRailItemProps) {
         borderRadius: 12,
         border: "none",
         cursor: "pointer",
-        backgroundColor: active ? "rgba(255,255,255,0.13)" : "transparent",
-        color: active ? "#fff" : "rgba(255,255,255,0.45)",
+        backgroundColor: active ? "var(--color-nav-active-bg)" : "transparent",
+        color: active ? "var(--color-nav-icon-active)" : "var(--color-nav-icon)",
         transition: "background-color 150ms, color 150ms",
       }}
       onMouseEnter={(e) => {
         if (!active) {
-          e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)";
-          e.currentTarget.style.color = "rgba(255,255,255,0.7)";
+          e.currentTarget.style.backgroundColor = "var(--color-nav-hover-bg)";
+          e.currentTarget.style.color = "var(--color-nav-icon-active)";
         }
       }}
       onMouseLeave={(e) => {
         if (!active) {
           e.currentTarget.style.backgroundColor = "transparent";
-          e.currentTarget.style.color = "rgba(255,255,255,0.45)";
+          e.currentTarget.style.color = "var(--color-nav-icon)";
         }
       }}
     >
