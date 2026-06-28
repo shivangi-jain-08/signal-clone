@@ -2,12 +2,13 @@ name: Keep Render alive
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # every 10 minutes
-  workflow_dispatch:           # allows manual trigger from GitHub UI
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping health endpoint
-        run: curl -sf https://signal-clone-2han.onrender.com/health
+      - run: |
+          date
+          curl -v https://signal-clone-2han.onrender.com/health
