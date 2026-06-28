@@ -24,9 +24,18 @@ export interface Contact {
   id: string;
   contact_user: UserPublic;
   nickname: string | null;
+  created_at: string;
 }
 
 export type ConversationType = "direct" | "group";
+
+export interface GroupInfo {
+  id: string;
+  name: string;
+  description: string;
+  avatar_url: string | null;
+  created_by: string;
+}
 
 export interface MessagePreview {
   id: string;
@@ -44,8 +53,7 @@ export interface Conversation {
   unread_count: number;
   is_archived: boolean;
   participants: UserPublic[];
-  group_name: string | null;
-  group_avatar_url: string | null;
+  group: GroupInfo | null;
   updated_at: string;
 }
 
@@ -58,29 +66,46 @@ export interface ReactionSummary {
   user_ids: string[];
 }
 
+export interface ReplyPreview {
+  id: string;
+  content: string;
+  sender_id: string;
+  deleted_at: string | null;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
   sender: UserPublic;
   content: string;
   message_type: MessageType;
-  reply_to_id: string | null;
+  reply_to: ReplyPreview | null;
   deleted_at: string | null;
   edited_at: string | null;
   reactions: ReactionSummary[];
   status: MessageStatus | null;
   created_at: string;
   updated_at: string;
-  /** Optimistic update: client-generated UUID for deduplication */
   client_id?: string;
 }
 
-export interface Group {
+export interface GroupMember extends UserPublic {
+  is_admin: boolean;
+  joined_at: string;
+  last_read_at: string | null;
+}
+
+export interface GroupDetail {
   id: string;
   conversation_id: string;
   name: string;
   description: string;
   avatar_url: string | null;
   created_by: string;
-  members: (UserPublic & { is_admin: boolean })[];
+  participants: GroupMember[];
+  last_message: MessagePreview | null;
+  unread_count: number;
+  is_archived: boolean;
+  updated_at: string;
+  created_at: string;
 }
