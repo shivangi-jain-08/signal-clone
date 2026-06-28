@@ -17,18 +17,18 @@ export function ReplyBubble({ reply, isSelf = false }: ReplyBubbleProps) {
   return (
     <div
       style={{
-        borderLeft: "3px solid var(--color-accent)",
+        borderLeft: isSelf ? "3px solid rgba(255,255,255,0.6)" : "3px solid var(--color-accent)",
         paddingLeft: 8,
         marginBottom: 6,
         maxWidth: "100%",
       }}
     >
       <div className="flex items-center gap-1 mb-0.5">
-        <Reply size={11} style={{ color: "var(--color-accent)", flexShrink: 0 }} />
+        <Reply size={11} style={{ color: isSelf ? "rgba(255,255,255,0.85)" : "var(--color-accent)", flexShrink: 0 }} />
         <span
           style={{
             fontSize: 11,
-            color: "var(--color-accent)",
+            color: isSelf ? "rgba(255,255,255,0.85)" : "var(--color-accent)",
             fontWeight: 600,
           }}
         >
