@@ -1,6 +1,9 @@
 import type { InfiniteData } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { usePresenceStore } from "@/store/presenceStore";
+import { useTypingStore } from "@/store/typingStore";
+import { useAuthStore } from "@/store/authStore";
+import { useConversationStore } from "@/store/conversationStore";
 import { getSocket } from "./client";
 import type { Message, Conversation, ReactionSummary, ReplyPreview, MessageType, MessageStatus } from "@/types/models";
 import type { ConversationList } from "@/services/api/conversations";
@@ -150,25 +153,22 @@ function bumpConversation(
   convId: string,
   updates: Partial<Pick<Conversation, "last_message" | "unread_count">>,
 ): void {
-  queryClient.setQueryData<{ data: ConversationList }>(
+  queryClient.setQueryData<ConversationList>(
     ["conversations"],
     (old) => {
       if (!old) return old;
-      const idx = old.data.conversations.findIndex((c) => c.id === convId);
+      const idx = old.conversations.findIndex((c) => c.id === convId);
       if (idx === -1) {
         // Unknown conversation — refetch the list
         void queryClient.invalidateQueries({ queryKey: ["conversations"] });
         return old;
       }
-      const conv = old.data.conversations[idx]!;
-      const updated = { ...conv, ...updates };
-      const without = old.data.conversations.filter((c) => c.id !== convId);
+      const conv = old.conversations[idx]!;
+      const updated = { ...conv, ...updates, updated_at: new Date().toISOString() };
+      const without = old.conversations.filter((c) => c.id !== convId);
       return {
         ...old,
-        data: {
-          ...old.data,
-          conversations: [updated, ...without],
-        },
+        conversations: [updated, ...without],
       };
     },
   );
@@ -209,6 +209,20 @@ export function registerSocketHandlers(): () => void {
   const onNewMessage = (raw: NewMessagePayload) => {
     const msg = rawToMessage(raw);
     prependMessage(raw.conversation_id, msg);
+
+    const currentUserId = useAuthStore.getState().user?.id;
+    const activeConvId = useConversationStore.getState().activeConversationId;
+    const isOwnMessage = msg.sender.id === currentUserId;
+    const isActiveConv = raw.conversation_id === activeConvId;
+
+    // Compute new unread count only for others' messages in non-active conversations
+    let unreadUpdate: { unread_count: number } | undefined;
+    if (!isOwnMessage && !isActiveConv) {
+      const currentList = queryClient.getQueryData<ConversationList>(["conversations"]);
+      const currentConv = currentList?.conversations.find((c) => c.id === raw.conversation_id);
+      unreadUpdate = { unread_count: (currentConv?.unread_count ?? 0) + 1 };
+    }
+
     bumpConversation(raw.conversation_id, {
       last_message: {
         id: msg.id,
@@ -218,6 +232,7 @@ export function registerSocketHandlers(): () => void {
         created_at: msg.created_at,
         deleted_at: null,
       },
+      ...unreadUpdate,
     });
   };
 
@@ -243,9 +258,14 @@ export function registerSocketHandlers(): () => void {
     patchMessage(p.conversation_id, p.message_id, { reactions });
   };
 
-  // ── Typing (no-op in foundation — features add UI) ────────────────────
-  const onTyping = (_p: TypingPayload) => {};
-  const onStopTyping = (_p: TypingPayload) => {};
+  // ── Typing ─────────────────────────────────────────────────────────
+  const { setTyping, clearTyping } = useTypingStore.getState();
+  const onTyping = (p: TypingPayload) => {
+    setTyping(p.conversation_id, p.user_id, p.username || p.user_id);
+  };
+  const onStopTyping = (p: TypingPayload) => {
+    clearTyping(p.conversation_id, p.user_id);
+  };
 
   // ── Presence ─────────────────────────────────────────────────────────────
   const onUserOnline = (p: UserPresencePayload) => {
@@ -282,46 +302,40 @@ export function registerSocketHandlers(): () => void {
 
   // ── Group lifecycle ───────────────────────────────────────────────────────
   const onGroupUpdated = (p: GroupUpdatedPayload) => {
-    queryClient.setQueryData<{ data: ConversationList }>(
+    queryClient.setQueryData<ConversationList>(
       ["conversations"],
       (old) => {
         if (!old) return old;
         return {
           ...old,
-          data: {
-            ...old.data,
-            conversations: old.data.conversations.map((c) =>
-              c.group?.id === p.group_id
-                ? {
-                    ...c,
-                    group: {
-                      ...c.group!,
-                      name: p.name,
-                      description: p.description,
-                      avatar_url: p.avatar_url,
-                    },
-                  }
-                : c,
-            ),
-          },
+          conversations: old.conversations.map((c) =>
+            c.group?.id === p.group_id
+              ? {
+                  ...c,
+                  group: {
+                    ...c.group!,
+                    name: p.name,
+                    description: p.description,
+                    avatar_url: p.avatar_url,
+                  },
+                }
+              : c,
+          ),
         };
       },
     );
   };
 
   const onGroupDeleted = (p: GroupDeletedPayload) => {
-    queryClient.setQueryData<{ data: ConversationList }>(
+    queryClient.setQueryData<ConversationList>(
       ["conversations"],
       (old) => {
         if (!old) return old;
         return {
           ...old,
-          data: {
-            ...old.data,
-            conversations: old.data.conversations.filter(
-              (c) => c.id !== p.conversation_id,
-            ),
-          },
+          conversations: old.conversations.filter(
+            (c) => c.id !== p.conversation_id,
+          ),
         };
       },
     );
