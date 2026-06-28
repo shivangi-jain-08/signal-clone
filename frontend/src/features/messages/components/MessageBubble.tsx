@@ -16,18 +16,14 @@ import type { MessageList } from "@/services/api/messages";
 interface MessageBubbleProps {
   message: Message;
   isSelf: boolean;
-  /** Position within a consecutive group for rounded corner shaping */
   position: "solo" | "top" | "middle" | "bottom";
-  /** Show sender name label (group chats, non-self) */
   showSenderName?: boolean;
   onReply?: (msg: Message) => void;
   conversationId: string;
 }
 
 function senderColor(userId: string): string {
-  const hash = userId
-    .split("")
-    .reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const hash = userId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
   return `hsl(${hash % 360}, 60%, 55%)`;
 }
 
@@ -72,7 +68,7 @@ export function MessageBubble({
   const handleLeave = useCallback(() => {
     leaveTimer.current = setTimeout(() => {
       setHovered(false);
-      setPickerOpen(false); // safe: picker also has handleEnter/handleLeave, so it cancels this if hovered
+      setPickerOpen(false);
     }, 150);
   }, []);
 
@@ -82,16 +78,10 @@ export function MessageBubble({
   // ── System message ────────────────────────────────────────────────────────
   if (isSystem) {
     return (
-      <div
-        className="flex justify-center py-1"
-        style={{ padding: "2px 0" }}
-      >
+      <div className="flex justify-center" style={{ padding: "2px 0" }}>
         <span
           className="text-system-msg px-3 py-1 rounded-full"
-          style={{
-            color: "var(--color-text-system)",
-            backgroundColor: "rgba(128,128,128,0.1)",
-          }}
+          style={{ color: "var(--color-text-system)", backgroundColor: "rgba(128,128,128,0.1)" }}
         >
           {message.content}
         </span>
@@ -100,47 +90,91 @@ export function MessageBubble({
   }
 
   const borderRadius = getBorderRadius(isSelf, position);
-  const bgColor = isSelf
-    ? "var(--color-bg-bubble-sent)"
-    : "var(--color-bg-bubble-recv)";
-  const textColor = isSelf
-    ? "var(--color-text-bubble-sent)"
-    : "var(--color-text-bubble-recv)";
+  const bgColor = isSelf ? "var(--color-bg-bubble-sent)" : "var(--color-bg-bubble-recv)";
+  const textColor = isSelf ? "var(--color-text-bubble-sent)" : "var(--color-text-bubble-recv)";
 
   async function handleDelete() {
     await messagesApi.delete(message.id);
-    qc.setQueryData<InfiniteData<MessageList>>(
-      ["messages", conversationId],
-      (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page) => ({
-            ...page,
-            messages: page.messages.map((m: Message) =>
-              m.id === message.id
-                ? { ...m, deleted_at: new Date().toISOString(), content: "" }
-                : m,
-            ),
-          })),
-        };
-      },
-    );
+    qc.setQueryData<InfiniteData<MessageList>>(["messages", conversationId], (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          messages: page.messages.map((m: Message) =>
+            m.id === message.id
+              ? { ...m, deleted_at: new Date().toISOString(), content: "" }
+              : m,
+          ),
+        })),
+      };
+    });
   }
 
   function handleCopy() {
     navigator.clipboard.writeText(message.content).catch(() => {});
   }
 
-  return (
+  // Action buttons — shared between both sides, order mirrors the side
+  const actionBar = hovered && !isDeleted && (
     <div
-      className={`flex w-full ${isSelf ? "justify-end" : "justify-start"}`}
-      style={{ position: "relative", marginBottom: 2 }}
+      className="flex items-center shrink-0"
+      style={{ gap: 2 }}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
     >
+      <button
+        type="button"
+        title="React"
+        onClick={() => setPickerOpen((p) => !p)}
+        style={actionBtnStyle}
+      >
+        <SmilePlus size={14} />
+      </button>
+      {onReply && (
+        <button
+          type="button"
+          title="Reply"
+          onClick={() => onReply(message)}
+          style={actionBtnStyle}
+        >
+          <Reply size={14} />
+        </button>
+      )}
+      <button
+        type="button"
+        title="Copy"
+        onClick={handleCopy}
+        style={actionBtnStyle}
+      >
+        <Copy size={14} />
+      </button>
+      {isSelf && (
+        <button
+          type="button"
+          title="Delete"
+          onClick={handleDelete}
+          style={{ ...actionBtnStyle, color: "var(--color-error)" }}
+        >
+          <Trash2 size={14} />
+        </button>
+      )}
+    </div>
+  );
+
+  return (
+    <div
+      className={`flex w-full items-end ${isSelf ? "justify-end" : "justify-start"}`}
+      style={{ gap: 4, marginBottom: 2 }}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
+    >
+      {/* Action bar sits to the LEFT for self/outgoing messages */}
+      {isSelf && actionBar}
+
+      {/* Bubble + picker wrapper */}
       <div className="max-w-[75%]" style={{ minWidth: 80, position: "relative" }}>
-        {/* Sender name (group chat, non-self, top of group) */}
+        {/* Sender name (group chats) */}
         {showSenderName && (position === "top" || position === "solo") && (
           <div
             style={{
@@ -164,12 +198,10 @@ export function MessageBubble({
             position: "relative",
           }}
         >
-          {/* Reply context */}
           {message.reply_to && !isDeleted && (
             <ReplyBubble reply={message.reply_to} isSelf={isSelf} />
           )}
 
-          {/* Content — inline spacer reserves room for the timestamp on the last line */}
           {isDeleted ? (
             <span
               className="text-msg-content"
@@ -198,12 +230,11 @@ export function MessageBubble({
                   (edited)
                 </span>
               )}
-              {/* Spacer pushes last line to leave room for the overlaid timestamp */}
               <span style={{ display: "inline-block", width: isSelf ? 62 : 42, height: 1 }} aria-hidden="true" />
             </span>
           )}
 
-          {/* Timestamp + status — overlaid at bottom-right, never covers text */}
+          {/* Timestamp + status overlay */}
           <div
             style={{
               position: "absolute",
@@ -220,9 +251,7 @@ export function MessageBubble({
               variant="message"
               style={{ color: isSelf ? "rgba(255,255,255,0.65)" : "var(--color-text-timestamp)" }}
             />
-            {isSelf && !isDeleted && (
-              <MessageStatus status={message.status} size={12} />
-            )}
+            {isSelf && !isDeleted && <MessageStatus status={message.status} size={12} />}
           </div>
         </div>
 
@@ -231,7 +260,7 @@ export function MessageBubble({
           <ReactionBar reactions={message.reactions} />
         )}
 
-        {/* Reaction picker — positioned above bubble, hover-tracked so it stays open */}
+        {/* Reaction picker — above bubble */}
         {pickerOpen && !isDeleted && (
           <div
             style={{
@@ -253,57 +282,8 @@ export function MessageBubble({
         )}
       </div>
 
-      {/* Hover action buttons — floats above the bubble, never off-screen */}
-      {hovered && !isDeleted && (
-        <div
-          className="flex items-center gap-0.5 absolute"
-          style={{
-            bottom: "100%",
-            paddingBottom: 6,
-            zIndex: 10,
-            ...(isSelf ? { right: 0 } : { left: 0 }),
-          }}
-          onMouseEnter={handleEnter}
-          onMouseLeave={handleLeave}
-        >
-          {onReply && (
-            <button
-              type="button"
-              title="Reply"
-              onClick={() => onReply(message)}
-              style={actionBtnStyle}
-            >
-              <Reply size={14} />
-            </button>
-          )}
-          <button
-            type="button"
-            title="React"
-            onClick={() => setPickerOpen((p) => !p)}
-            style={actionBtnStyle}
-          >
-            <SmilePlus size={14} />
-          </button>
-          <button
-            type="button"
-            title="Copy"
-            onClick={handleCopy}
-            style={actionBtnStyle}
-          >
-            <Copy size={14} />
-          </button>
-          {isSelf && (
-            <button
-              type="button"
-              title="Delete"
-              onClick={handleDelete}
-              style={{ ...actionBtnStyle, color: "var(--color-error)" }}
-            >
-              <Trash2 size={14} />
-            </button>
-          )}
-        </div>
-      )}
+      {/* Action bar sits to the RIGHT for incoming messages */}
+      {!isSelf && actionBar}
     </div>
   );
 }
@@ -317,7 +297,8 @@ const actionBtnStyle: React.CSSProperties = {
   borderRadius: "50%",
   border: "none",
   cursor: "pointer",
-  backgroundColor: "var(--color-bg-item-hover)",
+  backgroundColor: "var(--color-bg-app)",
   color: "var(--color-text-secondary)",
   transition: "background-color 80ms",
+  boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
 };
