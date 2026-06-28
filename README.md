@@ -1,418 +1,285 @@
 # Signal Clone
 
-A full-stack real-time messaging application modelled after Signal, built as an intern assignment for Scaler AI Labs.
+A real-time messaging app built with FastAPI + Next.js 15. This document covers the decisions I made, the tradeoffs I accepted, and the things that broke along the way.
+
+**Live:** https://signal-clone-xi.vercel.app  
+**API:** https://signal-clone-2han.onrender.com  
+**Docs:** https://signal-clone-2han.onrender.com/docs
 
 ---
 
-## Table of Contents
+## What's actually built
 
-- [Tech Stack](#tech-stack)
-- [Architecture Overview](#architecture-overview)
-- [Database Schema](#database-schema)
-- [API Reference](#api-reference)
-- [WebSocket Events](#websocket-events)
-- [Local Setup](#local-setup)
-- [Seeded Test Accounts](#seeded-test-accounts)
-- [Assumptions & Design Decisions](#assumptions--design-decisions)
+- Phone + OTP login (OTP is always `123456` — no SMS provider)
+- Direct and group conversations with real-time delivery
+- Typing indicators that show the sender's name, not their ID
+- Message reactions, edits, soft deletes, and reply threads
+- Read receipts with per-message status ticks (sent → delivered → read)
+- Online/last-seen presence that handles multiple open tabs correctly
+- Responsive layout — mobile shows one panel at a time, desktop shows three columns
+- Dark/light/system theme with no flash on hard refresh
+
+**What's explicitly not built:** actual E2E encryption (the notice in the UI is a mock), voice/video calls, stories, media uploads, and anything that costs money to run.
 
 ---
 
 ## Tech Stack
 
-### Backend
-| Layer | Choice |
-|---|---|
-| Framework | FastAPI 0.115 (async) |
-| ORM | SQLAlchemy 2.0 (async) |
-| Database | SQLite via `aiosqlite` |
-| Migrations | Alembic |
-| Real-time | python-socketio 5 (Socket.IO, ASGI) |
-| Auth | JWT (python-jose) — phone + OTP, no passwords |
-| Validation | Pydantic v2 |
-| Server | Uvicorn |
-
-### Frontend
-| Layer | Choice |
-|---|---|
-| Framework | Next.js 15 (App Router, Turbopack) |
-| Language | TypeScript 5 (strict) |
-| Styling | Tailwind CSS v4 |
-| Components | Radix UI + shadcn/ui |
-| State | Zustand 5 (client), TanStack Query 5 (server) |
-| Real-time | socket.io-client 4 |
-| Forms | React Hook Form + Zod |
-| HTTP | Axios |
+**Backend:** FastAPI · SQLAlchemy 2 (async) · SQLite · python-socketio · Alembic · JWT auth  
+**Frontend:** Next.js 15 App Router · React 19 · TypeScript · Tailwind CSS v4 · Zustand · TanStack Query · socket.io-client
 
 ---
 
-## Architecture Overview
+## Architecture
+
+The most important structural decision was keeping everything in one process:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    Browser                          │
-│                                                     │
-│  Next.js 15 (App Router)                            │
-│  ┌──────────────┐  ┌─────────────┐                  │
-│  │  React Query │  │   Zustand   │                  │
-│  │ (server state│  │(client state│                  │
-│  │  + caching)  │  │  + persist) │                  │
-│  └──────┬───────┘  └─────────────┘                  │
-│         │  REST (Axios)         WebSocket           │
-└─────────┼─────────────────────────┼─────────────────┘
-          │  HTTP /api/v1           │  /socket.io
-          ▼                         ▼
-┌─────────────────────────────────────────────────────┐
-│                FastAPI + Socket.IO (single process) │
-│                                                     │
-│  ┌──────────┐  ┌──────────┐  ┌────────────────┐     │
-│  │  Routers │  │  Services│  │  ConnectionMgr │     │
-│  │ (v1 API) │  │ (business│  │  (room routing │     │
-│  │          │  │  logic)  │  │  + presence)   │     │
-│  └────┬─────┘  └────┬─────┘  └────────┬───────┘     │
-│       └─────────────┴─────────────────┘             │
-│                      │                              │
-│              Repositories (async SQLAlchemy)        │
-└──────────────────────┬──────────────────────────────┘
-                       │
-               ┌───────▼───────┐
-               │  SQLite DB    │
-               │  (signal.db)  │
-               └───────────────┘
+Browser
+  ├── REST (Axios + TanStack Query)  ──►  FastAPI  ──►  SQLite
+  └── WebSocket (socket.io-client)  ──►  Socket.IO (ASGI, same process)
+                                              │
+                                        ConnectionManager
+                                        (in-memory dict)
 ```
 
-### Key Architectural Decisions
+Socket.IO is mounted as an ASGI sub-application *inside* FastAPI — not a separate service. No Redis, no message broker, no deploy complexity. The tradeoff: it won't scale horizontally. A Redis adapter would be needed for multiple instances. For a single-instance demo, the simplicity is worth it.
 
-**Single-process real-time:** Socket.IO is mounted as an ASGI sub-application alongside FastAPI — no separate WebSocket server or message broker needed for single-instance deployment.
+### How real-time state works
 
-**Room-based broadcasting:** Two room namespaces keep events targeted:
-- `conv:<conversation_id>` — chat events (messages, typing, reactions, presence)
-- `user:<user_id>` — personal events (delivery receipts)
+Socket handlers write directly into TanStack Query's cache — there's no parallel event store:
 
-**Server state via React Query:** All API data lives in TanStack Query's cache. Socket.IO handlers write directly into that cache (via `queryClient.setQueryData`), so the UI stays in sync without a separate event bus or Redux-style reducer.
+```
+Socket event arrives
+       │
+       ▼
+queryClient.setQueryData(["messages", convId], ...)
+       │
+       ▼
+React re-renders (Query observes the cache)
+```
 
-**No passwords:** Auth is phone number + OTP only. The OTP is always `123456` (mocked — no SMS provider integrated). JWT tokens are stored in Zustand (persisted to `localStorage`) and validated against a `sessions` table to support explicit logout/revocation.
+One source of truth for server data. The socket is just a push channel for cache updates, not a separate state system.
 
-**Soft deletes:** Messages are never physically deleted. `deleted_at` is set instead, and the content field is cleared. The "this message was deleted" UI is driven by the presence of `deleted_at`.
+### Presence — the multi-tab problem
 
-**Unread counts:** Derived at query time from `conversation_participants.last_read_at` vs `messages.created_at` — no denormalized counter that can drift.
+If a user has two tabs open and closes one, they should stay online. The fix is counting connections per user, not just tracking connected/disconnected:
+
+```python
+_connections: dict[str, set[str]]  # user_id → {sid, sid, ...}
+```
+
+`user_offline` only emits when the *last* tab disconnects. Every other disconnect is silent.
 
 ---
 
-## Database Schema
+## Database Design
 
-### `users`
+SQLite with async SQLAlchemy. Every PK is a UUID string — avoids sequential ID leakage and keeps IDs safe in URLs.
+
+**9 tables:** `users` · `sessions` · `contacts` · `conversations` · `conversation_participants` · `groups` · `messages` · `message_status` · `reactions`
+
+Three decisions worth explaining:
+
+**Sessions table for a "stateless" JWT app.** JWT is normally stateless — validate the signature, trust the payload, done. I added a sessions table because stateless JWTs can't be revoked: a stolen token stays valid until expiry. The extra DB lookup on each request is the cost; actual logout is the benefit.
+
+**Soft deletes via `deleted_at`, not a boolean.** When a message is deleted, `content` is cleared and `deleted_at` is stamped. The row stays. This is how Signal works — the "This message was deleted" ghost keeps reply threads coherent and avoids orphaned `reply_to_id` references. A hard delete would cascade-null those FKs and lose context.
+
+**Unread counts are computed, not stored.** `conversation_participants.last_read_at` is a cursor timestamp. Unread = messages after that cursor, excluding own. No counter column that can drift out of sync with actual reads.
+
+### Full schema
+
+<details>
+<summary>Click to expand all tables</summary>
+
+**`users`** — accounts, OTP, presence
+
 | Column | Type | Notes |
 |---|---|---|
-| `id` | UUID (PK) | |
-| `phone_number` | TEXT (UNIQUE) | E.164 format, login identifier |
-| `username` | TEXT (UNIQUE) | 3-30 chars, lowercase alphanumeric + underscore |
+| `id` | UUID PK | |
+| `phone_number` | TEXT UNIQUE | E.164, login identifier |
+| `username` | TEXT UNIQUE | 3–30 chars, lowercase alphanumeric + `_` |
 | `display_name` | TEXT | |
 | `avatar_url` | TEXT | nullable |
 | `bio` | TEXT | default `""` |
-| `otp_code` | TEXT | nullable, cleared after verification |
+| `otp_code` | TEXT | nullable, cleared after verify |
 | `otp_expires_at` | DATETIME | nullable, 10-min window |
-| `is_online` | BOOLEAN | real-time presence flag |
+| `is_online` | BOOLEAN | real-time flag |
 | `last_seen` | DATETIME | nullable, set on disconnect |
-| `created_at` | DATETIME | |
-| `updated_at` | DATETIME | |
+| `created_at`, `updated_at` | DATETIME | |
 
-### `sessions`
+**`sessions`** — one row per issued JWT
+
 | Column | Type | Notes |
 |---|---|---|
-| `id` | UUID (PK) | also the JWT `jti` claim |
-| `user_id` | FK → users | CASCADE delete |
-| `token` | TEXT (UNIQUE) | full JWT string |
-| `expires_at` | DATETIME | issued_at + 7 days |
-| `created_at` | DATETIME | |
+| `id` | UUID PK | also the JWT `jti` claim |
+| `user_id` | FK → users CASCADE | |
+| `token` | TEXT UNIQUE | full JWT string |
+| `expires_at` | DATETIME | issued + 7 days |
 
-### `contacts`
+**`contacts`** — asymmetric address book
+
 | Column | Type | Notes |
 |---|---|---|
-| `id` | UUID (PK) | |
 | `owner_id` | FK → users | |
 | `contact_user_id` | FK → users | |
-| `nickname` | TEXT | nullable override for display_name |
-| `created_at` | DATETIME | |
-| `updated_at` | DATETIME | |
-| UNIQUE | `(owner_id, contact_user_id)` | asymmetric — adding Bob doesn't add Alice |
+| `nickname` | TEXT | nullable display override |
+| UNIQUE | `(owner_id, contact_user_id)` | adding Bob doesn't add Alice |
 
-### `conversations`
+**`conversations`**
+
 | Column | Type | Notes |
 |---|---|---|
-| `id` | UUID (PK) | |
+| `id` | UUID PK | |
 | `type` | TEXT | `'direct'` or `'group'` |
-| `created_at` | DATETIME | |
-| `updated_at` | DATETIME | bumped on every new message for list sort |
+| `updated_at` | DATETIME | bumped on every message for sort |
 
-### `conversation_participants`
+**`conversation_participants`** — membership + per-user state
+
 | Column | Type | Notes |
 |---|---|---|
-| `id` | UUID (PK) | |
 | `conversation_id` | FK → conversations | |
 | `user_id` | FK → users | |
-| `joined_at` | DATETIME | |
 | `last_read_at` | DATETIME | nullable, drives unread count |
-| `is_admin` | BOOLEAN | group admin flag |
+| `is_admin` | BOOLEAN | group admin |
 | `is_archived` | BOOLEAN | per-user archive |
-| UNIQUE | `(conversation_id, user_id)` | |
 
-### `groups`
+**`groups`**
+
 | Column | Type | Notes |
 |---|---|---|
-| `id` | UUID (PK) | |
-| `conversation_id` | FK → conversations (UNIQUE) | 1-to-1 with conversation |
-| `name` | TEXT | |
-| `description` | TEXT | default `""` |
-| `avatar_url` | TEXT | nullable |
-| `created_by` | FK → users | for authorization checks |
-| `created_at` | DATETIME | |
-| `updated_at` | DATETIME | |
+| `conversation_id` | FK → conversations UNIQUE | 1-to-1 |
+| `name`, `description`, `avatar_url` | TEXT | |
+| `created_by` | FK → users | for delete authorization |
 
-### `messages`
+**`messages`**
+
 | Column | Type | Notes |
 |---|---|---|
-| `id` | UUID (PK) | |
 | `conversation_id` | FK → conversations | |
 | `sender_id` | FK → users | |
 | `content` | TEXT | cleared on soft delete |
-| `message_type` | TEXT | `'text'`, `'image'`, `'file'`, `'system'` |
-| `reply_to_id` | FK → messages | nullable, SET NULL if parent deleted |
+| `message_type` | TEXT | `text` · `image` · `file` · `system` |
+| `reply_to_id` | FK → messages | SET NULL if parent deleted |
 | `deleted_at` | DATETIME | nullable, soft delete |
 | `edited_at` | DATETIME | nullable |
-| `disappears_at` | DATETIME | nullable, ephemeral messages |
-| `created_at` | DATETIME | |
-| `updated_at` | DATETIME | |
+| `disappears_at` | DATETIME | nullable, reserved for ephemeral |
 
-### `message_status`
+**`message_status`** — delivery/read tracking
+
 | Column | Type | Notes |
 |---|---|---|
-| `id` | UUID (PK) | |
 | `message_id` | FK → messages | |
 | `user_id` | FK → users | |
 | `status` | TEXT | `'delivered'` or `'read'` |
-| `updated_at` | DATETIME | |
 | UNIQUE | `(message_id, user_id)` | upserted, not inserted |
 
-### `reactions`
+**`reactions`**
+
 | Column | Type | Notes |
 |---|---|---|
-| `id` | UUID (PK) | |
 | `message_id` | FK → messages | |
 | `user_id` | FK → users | |
-| `emoji` | TEXT | single emoji character |
-| `created_at` | DATETIME | |
+| `emoji` | TEXT | |
 | UNIQUE | `(message_id, user_id)` | one reaction per user per message |
+
+</details>
 
 ---
 
-## API Reference
+## API
 
-Base URL: `http://localhost:8000/api/v1`
+Base: `/api/v1` · Auth: `Authorization: Bearer <token>` (all routes except `/auth/register`, `/auth/send-otp`, `/auth/verify-otp`)
 
-All endpoints except `/auth/register`, `/auth/send-otp`, and `/auth/verify-otp` require `Authorization: Bearer <token>`.
+| Group | Endpoints |
+|---|---|
+| Auth | `POST /auth/register` · `POST /auth/send-otp` · `POST /auth/verify-otp` · `POST /auth/logout` · `GET /auth/me` |
+| Users | `GET /users/search?q=` · `PATCH /users/me` · `GET /users/{id}` |
+| Contacts | `GET /contacts` · `POST /contacts` · `PATCH /contacts/{id}` · `DELETE /contacts/{id}` |
+| Conversations | `GET /conversations` · `POST /conversations/direct` · `GET /conversations/{id}` · `POST /conversations/{id}/read` |
+| Messages | `GET /conversations/{id}/messages` · `POST /conversations/{id}/messages` · `PATCH /messages/{id}` · `DELETE /messages/{id}` · `PUT /messages/{id}/reactions` |
+| Groups | `POST /groups` · `GET /groups/{id}` · `PATCH /groups/{id}` · `DELETE /groups/{id}` · `POST /groups/{id}/members` · `DELETE /groups/{id}/members/{user_id}` |
 
-### Auth
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/auth/register` | Create account (phone, username, display_name) |
-| POST | `/auth/send-otp` | Request OTP for phone number |
-| POST | `/auth/verify-otp` | Verify OTP, receive JWT |
-| POST | `/auth/logout` | Revoke current JWT session |
-| GET | `/auth/me` | Authenticated user's full profile |
-
-### Users
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/users/search?q=&limit=20` | Search by username or display name |
-| PATCH | `/users/me` | Update profile (display_name, bio, username, avatar_url) |
-| GET | `/users/{id}` | Public profile (no phone) |
-
-### Contacts
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/contacts` | List my contacts |
-| POST | `/contacts` | Add contact (idempotent) |
-| PATCH | `/contacts/{id}` | Update nickname |
-| DELETE | `/contacts/{id}` | Remove contact |
-
-### Conversations
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/conversations` | List all conversations (sorted by last message) |
-| GET | `/conversations/search?q=` | Search conversations |
-| POST | `/conversations/direct` | Open or find a direct conversation (idempotent) |
-| GET | `/conversations/{id}` | Conversation detail + participants |
-| POST | `/conversations/{id}/read` | Mark as read |
-| PATCH | `/conversations/{id}/archive` | Toggle archive |
-
-### Messages
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/conversations/{id}/messages` | Paginated message history (cursor-based) |
-| POST | `/conversations/{id}/messages` | Send a message |
-| PATCH | `/messages/{id}` | Edit message (sender only) |
-| DELETE | `/messages/{id}` | Soft-delete (sender or group admin) |
-| PUT | `/messages/{id}/reactions` | Add / change / remove emoji reaction |
-
-### Groups
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/groups` | Create group (caller becomes admin) |
-| GET | `/groups/{id}` | Group detail + member list |
-| PATCH | `/groups/{id}` | Update name / description / avatar (admin only) |
-| DELETE | `/groups/{id}` | Delete group (admin only) |
-| POST | `/groups/{id}/members` | Add members (admin only) |
-| DELETE | `/groups/{id}/members/{user_id}` | Remove member (admin or self-leave) |
-
-Interactive docs: `http://localhost:8000/docs`
+Full interactive docs at `/docs`.
 
 ---
 
 ## WebSocket Events
 
-Connect to `http://localhost:8000/socket.io` with Socket.IO. Pass the JWT in the handshake auth object:
+Connect to `/socket.io` with `{ auth: { token: "<jwt>" } }`.
 
-```js
-io("http://localhost:8000", { auth: { token: "<jwt>" } })
-```
+**Client → Server:** `typing` · `stop_typing` · `message_read` · `join_conversation`
 
-### Client → Server
-| Event | Payload | Description |
-|---|---|---|
-| `typing` | `{ conversation_id }` | Broadcast typing indicator to conv room |
-| `stop_typing` | `{ conversation_id }` | Clear typing indicator |
-| `message_read` | `{ conversation_id }` | Mark conv read, emit receipts to senders |
-| `join_conversation` | `{ conversation_id }` | Join room after creating a new conversation |
+**Server → Client:** `new_message` · `message_edited` · `message_deleted` · `reaction_updated` · `typing` · `stop_typing` · `user_online` · `user_offline` · `conversation_read` · `message_status_update` · `group_updated` · `group_deleted` · `member_added` · `member_removed`
 
-### Server → Client
-| Event | Payload | Description |
-|---|---|---|
-| `connected` | `{ user_id }` | Handshake complete |
-| `new_message` | Full `MessageResponse` | New message in a conversation |
-| `message_edited` | `{ id, conversation_id, content, edited_at }` | Message was edited |
-| `message_deleted` | `{ id, conversation_id, deleted_at }` | Message soft-deleted |
-| `reaction_updated` | `{ message_id, conversation_id, reactions }` | Reactions changed |
-| `typing` | `{ user_id, conversation_id, display_name }` | Someone is typing |
-| `stop_typing` | `{ user_id, conversation_id }` | Someone stopped typing |
-| `user_online` | `{ user_id, is_online: true }` | User came online |
-| `user_offline` | `{ user_id, is_online: false, last_seen }` | User went offline |
-| `conversation_read` | `{ conversation_id, user_id, last_read_at }` | Read receipt |
-| `message_status_update` | `{ message_id, user_id, status }` | Delivered / read tick |
-| `group_updated` | Full `GroupDetailResponse` | Group metadata changed |
-| `group_deleted` | `{ group_id }` | Group was deleted |
-| `member_added` | `{ user_id, conversation_id }` | Member joined group |
-| `member_removed` | `{ user_id, conversation_id }` | Member left or was removed |
+---
+
+## Bugs I actually fixed
+
+These tell you more about the codebase than a feature list does.
+
+**Typing indicator showed a user ID instead of a name.** The backend `typing` event only emitted `user_id`. Fixed by storing `display_name` in `ConnectionManager` at connect time (the user object is already loaded during JWT auth, so no extra query) and including it in the event payload.
+
+**Group info panel showed `@` for every member.** The `/groups/{id}` endpoint returned participants as `{ user: UserPublic, is_admin, joined_at }` — nested. The frontend expected a flat shape. Fixed with a `normalizeGroup()` function in the API layer that flattens before any component sees the data.
+
+**Dark mode nav icons were black on a dark background.** The nav rail used `style={{ color: "var(--color-nav-icon)" }}` with a CSS custom property set in `.dark { }`. It didn't work — Tailwind v4's `@custom-variant dark (&:is(.dark *))` powers utility classes, not CSS variable resolution in inline styles. Fixed by replacing the inline style with Tailwind `dark:` classes (`dark:text-white/50`).
+
+**Dark mode flashed the wrong colors on hard refresh.** `ThemeApplier` set `.dark` on `<html>` inside `useEffect` — after the first paint. Fixed with a synchronous inline `<script>` in `<head>` that reads `localStorage` before React renders. Same technique `next-themes` uses.
+
+**Render deployed Python 3.14 instead of 3.11.** `runtime.txt` was ignored. Fixed by adding `.python-version` (which Render actually reads) and unpinning `pydantic` to allow compatible wheels.
+
+**Render went cold between requests.** Free tier suspends after 15 minutes idle. Fixed with a GitHub Actions cron that pings `/health` every 10 minutes.
 
 ---
 
 ## Local Setup
 
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- Git
-
-### 1 — Clone
-
-```bash
-git clone https://github.com/shivangi-jain-08/signal-clone.git
-cd signal-clone
-```
-
-### 2 — Backend
+**Backend**
 
 ```bash
 cd backend
-
-# Create and activate virtual environment
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-
-# Install dependencies
+python -m venv venv && source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env — set SECRET_KEY to a 32+ char random string
-
-# Run migrations
+cp .env.example .env   # set SECRET_KEY to any 32+ char string
 alembic upgrade head
-
-# Seed test data
 python -m app.seed.seed
-
-# Start server
 uvicorn app.main:app --reload --port 8000
 ```
 
-The API is now available at `http://localhost:8000`.  
-Interactive docs: `http://localhost:8000/docs`
-
-### 3 — Frontend
+**Frontend**
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start dev server
 npm run dev
 ```
 
-The app is now available at `http://localhost:3000`.
-
-> **Note:** The frontend connects to `http://localhost:8000` by default. To point it at a different backend, update `API_BASE_URL` and `WS_URL` in `frontend/src/lib/constants.ts`.
+App at `http://localhost:3000` · API at `http://localhost:8000` · Docs at `http://localhost:8000/docs`
 
 ---
 
-## Seeded Test Accounts
+## Test Accounts
 
-After running the seed script, 8 accounts are available. All use OTP **`123456`**.
+All use OTP **`123456`**. Pre-seeded with 6 direct chats and 3 group conversations (Team Alpha, Weekend Plans, Book Club) including message history, reactions, and reply threads.
 
-| Phone | Username | Display Name |
-|---|---|---|
-| +919810000001 | alice | Alice |
-| +919810000002 | bob | Bob |
-| +919810000003 | carol | Carol |
-| +919810000004 | dave | Dave |
-| +919810000005 | eve | Eve |
-| +919810000006 | frank | Frank |
-| +919810000007 | grace | Grace |
-| +919810000008 | henry | Henry |
-
-Pre-seeded conversations:
-- **6 direct chats** (Alice↔Bob, Alice↔Carol, Bob↔Dave, Carol↔Eve, Dave↔Frank, Eve↔Grace) with 20–30 messages each
-- **3 group chats** (Team Alpha, Weekend Plans, Book Club) with realistic multi-participant threads
-- Emoji reactions and reply-to chains included
+| Phone | Username |
+|---|---|
+| +919810000001 | alice |
+| +919810000002 | bob |
+| +919810000003 | carol |
+| +919810000004 | dave |
+| +919810000005 | eve |
+| +919810000006 | frank |
+| +919810000007 | grace |
+| +919810000008 | henry |
 
 ---
 
-## Assumptions & Design Decisions
+## Assumptions
 
-**OTP is always `123456`**  
-No SMS provider is integrated. The OTP is hardcoded in the seed and the "send OTP" endpoint stores it directly. In production this would be replaced by Twilio/AWS SNS.
-
-**SQLite instead of PostgreSQL**  
-SQLite is used for portability and zero-config local setup. The SQLAlchemy async layer means switching to PostgreSQL requires only a connection string change — no query changes.
-
-**No media upload pipeline**  
-Messages support `message_type: 'image' | 'file'` at the schema level, but the frontend only sends text. The `MEDIA_DIR` env var is reserved for a future upload endpoint.
-
-**Ephemeral messages are schema-only**  
-`messages.disappears_at` exists in the database but no background job deletes expired messages. It is included as a forward-looking design choice.
-
-**End-to-end encryption is simulated**  
-The "Messages are end-to-end encrypted" notice in the UI is a UI mock. All messages are stored and transmitted in plaintext. Full Signal Protocol (X3DH key exchange, sealed sender, double ratchet) is not implemented.
-
-**Contacts are asymmetric**  
-Adding someone to your contacts does not add you to theirs, matching how most messaging apps handle contact lists (you can message anyone; contacts are a personal address book).
-
-**Single Socket.IO server instance**  
-The ConnectionManager uses in-process Python dicts. This works for a single server instance but would require a Redis adapter for horizontal scaling.
-
-**Calls and Stories are placeholders**  
-Voice/video calls and Stories render "Coming Soon" pages. The nav rail reserves space for them as intended future features.
-
-**Theme flash prevention**  
-A synchronous inline `<script>` in the root HTML reads `localStorage` and applies the `.dark` CSS class before React hydrates — preventing a flash of the wrong theme on hard refresh.
+- **OTP is mocked.** `123456` always works. Plugging in Twilio is ~20 lines; it costs money to run.
+- **SQLite over Postgres.** Zero infrastructure for local dev. The async SQLAlchemy layer is DB-agnostic — switching is a one-line connection string change. The real cost is no concurrent writes at scale.
+- **No media uploads.** `message_type: 'image' | 'file'` exists in the schema; the frontend only sends text. The `MEDIA_DIR` env var is reserved for a future upload endpoint.
+- **Ephemeral messages are schema-only.** `messages.disappears_at` is modelled but no background job reads it.
+- **E2E encryption is a UI label.** Messages are stored and transmitted in plaintext. Full Signal Protocol (X3DH, double ratchet, sealed sender) is not implemented.
+- **Single-instance WebSocket.** `ConnectionManager` uses an in-process dict. Works for one server; needs a Redis adapter for horizontal scale.
