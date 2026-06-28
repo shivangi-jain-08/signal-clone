@@ -5,7 +5,7 @@ import { LoginForm } from "@/features/auth/components/LoginForm";
 import { OTPForm } from "@/features/auth/components/OTPForm";
 
 export default function LoginPage() {
-  const { step, setStep, phone, setPhone, loading, sendOtp, verifyOtp } = useLoginFlow();
+  const { step, setStep, phone, setPhone, loading, sendOtp, verifyOtp, loginAsDemo } = useLoginFlow();
 
   if (step === "otp") {
     return (
@@ -24,6 +24,7 @@ export default function LoginPage() {
       phone={phone}
       onChange={setPhone}
       onSubmit={sendOtp}
+      onDemoLogin={loginAsDemo}
       loading={loading}
     />
   );

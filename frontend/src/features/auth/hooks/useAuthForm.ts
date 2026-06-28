@@ -47,7 +47,22 @@ export function useLoginFlow() {
     }
   }
 
-  return { step, setStep, phone, setPhone, loading, sendOtp, verifyOtp };
+  async function loginAsDemo(demoPhone: string) {
+    setPhone(demoPhone);
+    setLoading(true);
+    try {
+      await authApi.sendOtp(demoPhone);
+      const result = await authApi.verifyOtp(demoPhone, "123456");
+      setAuth(result.user, result.token);
+      router.replace("/conversations");
+    } catch (e) {
+      toast.error(extractError(e, "Demo login failed. Is the backend running?"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return { step, setStep, phone, setPhone, loading, sendOtp, verifyOtp, loginAsDemo };
 }
 
 export function useRegisterFlow() {
