@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Lock, Smartphone } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useUIStore } from "@/store/uiStore";
 import { ProfileSettings } from "@/features/settings/components/ProfileSettings";
@@ -10,13 +10,15 @@ import { PrivacySettings } from "@/features/settings/components/PrivacySettings"
 import { NotificationSettings } from "@/features/settings/components/NotificationSettings";
 import type { Theme } from "@/store/uiStore";
 
-type Section = "profile" | "appearance" | "privacy" | "notifications";
+type Section = "profile" | "appearance" | "privacy" | "notifications" | "linked-devices" | "encryption";
 
 const NAV_ITEMS: { id: Section; label: string }[] = [
   { id: "profile", label: "Profile" },
   { id: "appearance", label: "Appearance" },
   { id: "privacy", label: "Privacy" },
   { id: "notifications", label: "Notifications" },
+  { id: "linked-devices", label: "Linked Devices" },
+  { id: "encryption", label: "Encryption" },
 ];
 
 const THEMES: { value: Theme; label: string }[] = [
@@ -56,6 +58,32 @@ function AppearanceSettings() {
               {t.label}
             </button>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ComingSoonSection({ icon: Icon, title, description }: { icon: React.FC<{ size?: number }>, title: string, description: string }) {
+  return (
+    <div className="p-6 flex flex-col gap-4 max-w-md">
+      <h2 className="text-header-name" style={{ color: "var(--color-text-primary)" }}>
+        {title}
+      </h2>
+      <div
+        className="flex flex-col items-center gap-4 rounded-xl p-8 text-center"
+        style={{ backgroundColor: "var(--color-bg-input)", border: "1px solid var(--color-border)" }}
+      >
+        <div style={{ color: "var(--color-text-tertiary)" }}>
+          <Icon size={40} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <p className="text-btn" style={{ color: "var(--color-text-primary)" }}>
+            Coming Soon
+          </p>
+          <p className="text-msg-preview" style={{ color: "var(--color-text-secondary)" }}>
+            {description}
+          </p>
         </div>
       </div>
     </div>
@@ -129,6 +157,20 @@ export default function SettingsPage() {
         {section === "appearance" && <AppearanceSettings />}
         {section === "privacy" && <PrivacySettings />}
         {section === "notifications" && <NotificationSettings />}
+        {section === "linked-devices" && (
+          <ComingSoonSection
+            icon={Smartphone}
+            title="Linked Devices"
+            description="Link Signal Clone on other devices — desktop, tablet, and web — so your messages stay in sync everywhere."
+          />
+        )}
+        {section === "encryption" && (
+          <ComingSoonSection
+            icon={Lock}
+            title="End-to-End Encryption"
+            description="All messages are end-to-end encrypted in transit using TLS. Full Signal Protocol key exchange and sealed sender are on the roadmap."
+          />
+        )}
       </main>
     </div>
   );

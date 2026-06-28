@@ -7,6 +7,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { OnlineDot } from "@/components/common/OnlineDot";
 import { ArrowLeft, Video, Phone, Search, MoreVertical } from "lucide-react";
 import { parseUtc } from "@/lib/utils";
+import { toast } from "@/components/ui/toast";
 import { useAuthStore } from "@/store/authStore";
 import { usePresenceStore } from "@/store/presenceStore";
 
@@ -108,10 +109,10 @@ export function ConversationHeader({
       </div>
 
       {/* Right-side action icons */}
-      <IconButton aria-label="Video call" size="md">
+      <IconButton aria-label="Video call" size="md" onClick={() => toast.default("Video calls — coming soon.")}>
         <Video size={19} />
       </IconButton>
-      <IconButton aria-label="Voice call" size="md">
+      <IconButton aria-label="Voice call" size="md" onClick={() => toast.default("Voice calls — coming soon.")}>
         <Phone size={18} />
       </IconButton>
       <IconButton aria-label="Search messages" size="md">

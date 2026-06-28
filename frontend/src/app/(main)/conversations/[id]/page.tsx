@@ -18,6 +18,20 @@ import { getSocket } from "@/services/socket/client";
 import { Lock } from "lucide-react";
 import type { Message, ReplyPreview } from "@/types/models";
 
+function EncryptionNotice() {
+  return (
+    <div
+      className="flex items-center justify-center gap-1.5 py-2 shrink-0"
+      style={{ borderBottom: "1px solid var(--color-divider)" }}
+    >
+      <Lock size={11} style={{ color: "var(--color-text-tertiary)" }} />
+      <span className="text-system-msg" style={{ color: "var(--color-text-tertiary)" }}>
+        Messages are end-to-end encrypted
+      </span>
+    </div>
+  );
+}
+
 interface ConversationPageProps {
   params: Promise<{ id: string }>;
 }
@@ -134,6 +148,8 @@ export default function ConversationPage({ params }: ConversationPageProps) {
             isGroupChat ? () => setInfoPanelOpen((p) => !p) : undefined
           }
         />
+
+        <EncryptionNotice />
 
         {messages.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">

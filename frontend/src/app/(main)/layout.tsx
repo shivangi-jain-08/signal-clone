@@ -9,7 +9,8 @@ import { IconButton } from "@/components/ui/icon-button";
 import { ConversationList } from "@/features/conversations/components/ConversationList";
 import { ConversationSearch } from "@/features/conversations/components/ConversationSearch";
 import { NewConversationModal } from "@/features/conversations/components/NewConversationModal";
-import { Edit3, MoreHorizontal, MessageSquare, Phone, Bookmark, Settings, LogOut } from "lucide-react";
+import { Edit3, MoreHorizontal, MessageSquare, Phone, BookImage, Settings, LogOut } from "lucide-react";
+import { toast } from "@/components/ui/toast";
 
 interface NavRailItemProps {
   icon: React.FC<{ size?: number }>;
@@ -94,8 +95,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <NavRailItem icon={MessageSquare} active label="Chats" onClick={() => router.push("/conversations")} />
-        <NavRailItem icon={Phone} label="Calls" />
-        <NavRailItem icon={Bookmark} label="Saved" />
+        <NavRailItem icon={Phone} label="Calls" onClick={() => toast.default("Calls — coming soon.")} />
+        <NavRailItem icon={BookImage} label="Stories" onClick={() => toast.default("Stories — coming soon.")} />
 
         <div style={{ flex: 1 }} />
 
