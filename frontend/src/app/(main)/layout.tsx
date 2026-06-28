@@ -132,7 +132,16 @@ function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Edit3 size={18} />
           </IconButton>
-          <IconButton aria-label="More options" size="md">
+          {/* Settings icon — mobile only (nav rail handles this on desktop) */}
+          <IconButton
+            aria-label="Settings"
+            size="md"
+            className="md:hidden"
+            onClick={() => router.push("/settings")}
+          >
+            <Settings size={18} />
+          </IconButton>
+          <IconButton aria-label="More options" size="md" className="hidden md:inline-flex">
             <MoreHorizontal size={18} />
           </IconButton>
         </div>
