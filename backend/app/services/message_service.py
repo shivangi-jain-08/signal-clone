@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BadRequestException, ForbiddenException, NotFoundException
 from app.models.base import utcnow
 from app.models.message import Message
+from app.models.message_status import MessageStatus
 from app.models.reaction import Reaction
 from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.message_repository import MessageRepository
@@ -19,6 +20,9 @@ from app.schemas.message import (
     SendMessageRequest,
 )
 from app.schemas.user import UserPublic
+from app.websocket.events import ServerEvents, conversation_room, user_room
+from app.websocket.manager import connection_manager
+from app.websocket.sio import sio
 
 _VALID_TYPES = {"text", "image", "file", "system"}
 
@@ -127,10 +131,36 @@ class MessageService:
             reply_to_id=body.reply_to_id,
         )
         await self._convs.bump_updated_at(conv_id)
+
+        # Mark 'delivered' for recipients who are currently online
+        delivered_to: list[str] = []
+        for p in conv.participants:
+            if p.user_id != sender_id and connection_manager.is_online(p.user_id):
+                self.db.add(MessageStatus(
+                    message_id=msg.id,
+                    user_id=p.user_id,
+                    status="delivered",
+                ))
+                delivered_to.append(p.user_id)
+
         await self.db.commit()
 
         msg_loaded = await self._msgs.get_with_relations(msg.id)
-        return _build_message_response(msg_loaded, client_id=body.client_id)
+        msg_response = _build_message_response(msg_loaded, client_id=body.client_id)
+
+        await sio.emit(
+            ServerEvents.NEW_MESSAGE,
+            msg_response.model_dump(mode="json"),
+            room=conversation_room(conv_id),
+        )
+        for uid in delivered_to:
+            await sio.emit(
+                ServerEvents.MESSAGE_STATUS_UPDATE,
+                {"message_id": msg.id, "user_id": uid, "status": "delivered"},
+                room=user_room(sender_id),
+            )
+
+        return msg_response
 
     # ------------------------------------------------------------------
     # Edit
@@ -151,11 +181,25 @@ class MessageService:
                 detail="Only the sender can edit this message", code="FORBIDDEN"
             )
 
+        conv_id = msg.conversation_id
         msg.content = body.content
         msg.edited_at = utcnow()
         await self.db.flush()
         await self.db.commit()
+
         msg_loaded = await self._msgs.get_with_relations(message_id)
+
+        await sio.emit(
+            ServerEvents.MESSAGE_EDITED,
+            {
+                "id": message_id,
+                "conversation_id": conv_id,
+                "content": msg.content,
+                "edited_at": msg.edited_at.isoformat(),
+                "sender_id": msg.sender_id,
+            },
+            room=conversation_room(conv_id),
+        )
         return _build_message_response(msg_loaded)
 
     # ------------------------------------------------------------------
@@ -186,8 +230,19 @@ class MessageService:
                 code="FORBIDDEN",
             )
 
+        conv_id = msg.conversation_id
         await self._msgs.soft_delete(msg)
         await self.db.commit()
+
+        await sio.emit(
+            ServerEvents.MESSAGE_DELETED,
+            {
+                "id": message_id,
+                "conversation_id": conv_id,
+                "deleted_at": msg.deleted_at.isoformat(),
+            },
+            room=conversation_room(conv_id),
+        )
         return DeleteMessageResponse(id=msg.id, deleted_at=msg.deleted_at)
 
     # ------------------------------------------------------------------
@@ -211,16 +266,13 @@ class MessageService:
         existing = await self._msgs.get_reaction(message_id, caller_id)
 
         if body.emoji == "":
-            # Remove reaction
             if existing:
                 await self.db.delete(existing)
                 await self.db.flush()
         elif existing:
-            # Update emoji
             existing.emoji = body.emoji
             await self.db.flush()
         else:
-            # Add new reaction
             self.db.add(
                 Reaction(
                     message_id=message_id,
@@ -240,4 +292,14 @@ class MessageService:
             ReactionEntry(emoji=r.emoji, user_id=r.user_id)
             for r in result.scalars().all()
         ]
+
+        await sio.emit(
+            ServerEvents.REACTION_UPDATED,
+            {
+                "message_id": message_id,
+                "conversation_id": msg.conversation_id,
+                "reactions": [r.model_dump() for r in fresh_reactions],
+            },
+            room=conversation_room(msg.conversation_id),
+        )
         return ReactionResponse(message_id=message_id, reactions=fresh_reactions)

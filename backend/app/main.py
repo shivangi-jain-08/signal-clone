@@ -21,6 +21,7 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.exceptions import AppException
 from app.websocket.handlers import register_handlers
+from app.websocket.sio import sio
 
 # ---------------------------------------------------------------------------
 # Logging configuration
@@ -46,15 +47,8 @@ logger = structlog.get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Socket.io server
+# Socket.io server — created in app.websocket.sio to break circular imports
 # ---------------------------------------------------------------------------
-
-sio = socketio.AsyncServer(
-    async_mode="asgi",
-    cors_allowed_origins=settings.CORS_ORIGINS,
-    logger=False,
-    engineio_logger=False,
-)
 
 register_handlers(sio)
 

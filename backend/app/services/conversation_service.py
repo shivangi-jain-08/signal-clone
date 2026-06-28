@@ -19,6 +19,8 @@ from app.schemas.conversation import (
     ReadResponse,
 )
 from app.schemas.user import UserPublic
+from app.websocket.events import ServerEvents, conversation_room
+from app.websocket.sio import sio
 
 
 def _msg_preview(msg: Message) -> MessagePreview:
@@ -237,6 +239,16 @@ class ConversationService:
         now = utcnow()
         await self._convs.update_last_read(conv_id, caller_id, now)
         await self.db.commit()
+
+        await sio.emit(
+            ServerEvents.CONVERSATION_READ,
+            {
+                "conversation_id": conv_id,
+                "user_id": caller_id,
+                "last_read_at": now.isoformat(),
+            },
+            room=conversation_room(conv_id),
+        )
         return ReadResponse(last_read_at=now)
 
     # ------------------------------------------------------------------
