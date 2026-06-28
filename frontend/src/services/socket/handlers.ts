@@ -5,6 +5,7 @@ import { useTypingStore } from "@/store/typingStore";
 import { useAuthStore } from "@/store/authStore";
 import { useConversationStore } from "@/store/conversationStore";
 import { getSocket } from "./client";
+import { toast } from "@/components/ui/toast";
 import type { Message, Conversation, ReactionSummary, ReplyPreview, MessageType, MessageStatus } from "@/types/models";
 import type { ConversationList } from "@/services/api/conversations";
 import type { MessageList } from "@/services/api/messages";
@@ -225,6 +226,19 @@ export function registerSocketHandlers(): () => void {
       const currentList = queryClient.getQueryData<ConversationList>(["conversations"]);
       const currentConv = currentList?.conversations.find((c) => c.id === raw.conversation_id);
       unreadUpdate = { unread_count: (currentConv?.unread_count ?? 0) + 1 };
+
+      // Toast notification for incoming messages from other conversations
+      if (msg.message_type !== "system" && !msg.deleted_at) {
+        const sender = msg.sender.display_name || msg.sender.username;
+        const preview = msg.content.length > 55 ? msg.content.slice(0, 55) + "…" : msg.content;
+        toast.default(`${sender}: ${preview}`, {
+          duration: 5000,
+          action: {
+            label: "View",
+            onClick: () => { window.location.href = `/conversations/${raw.conversation_id}`; },
+          },
+        });
+      }
     }
 
     bumpConversation(
