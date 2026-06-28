@@ -3,6 +3,7 @@ name: Keep Render alive
 on:
   schedule:
     - cron: "*/10 * * * *"   # every 10 minutes
+  workflow_dispatch:           # allows manual trigger from GitHub UI
 
 jobs:
   ping:
