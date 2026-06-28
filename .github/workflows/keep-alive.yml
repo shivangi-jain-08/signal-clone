@@ -1,0 +1,12 @@
+name: Keep Render alive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 minutes
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: curl -sf https://signal-clone-2han.onrender.com/health
