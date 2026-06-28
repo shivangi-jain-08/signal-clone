@@ -209,7 +209,7 @@ export function MessageBubble({
             <Timestamp
               iso={message.created_at}
               variant="message"
-              className={isSelf ? "opacity-55" : ""}
+              style={isSelf ? { color: "rgba(255,255,255,0.65)" } : undefined}
             />
             {isSelf && !isDeleted && (
               <MessageStatus status={message.status} size={13} />

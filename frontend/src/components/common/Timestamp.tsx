@@ -24,16 +24,17 @@ interface TimestampProps {
   /** "conversation" → smart relative label; "message" → time-only */
   variant?: "conversation" | "message";
   className?: string;
+  style?: React.CSSProperties;
 }
 
 /** Renders a <time> element with Signal-spec timestamp formatting */
-export function Timestamp({ iso, variant = "conversation", className = "" }: TimestampProps) {
+export function Timestamp({ iso, variant = "conversation", className = "", style }: TimestampProps) {
   const text = variant === "message" ? formatMessageTimestamp(iso) : formatConversationTimestamp(iso);
   return (
     <time
       dateTime={iso}
       className={`text-timestamp ${className}`}
-      style={{ color: "var(--color-text-timestamp)" }}
+      style={{ color: "var(--color-text-timestamp)", ...style }}
     >
       {text}
     </time>
