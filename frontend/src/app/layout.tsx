@@ -16,6 +16,18 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Reads theme from localStorage and applies .dark before first paint — prevents flash of wrong theme */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          try {
+            var s = JSON.parse(localStorage.getItem('signal-ui') || '{}');
+            var t = s.state && s.state.theme;
+            if (t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+              document.documentElement.classList.add('dark');
+            }
+          } catch(e) {}
+        `}} />
+      </head>
       <body>
         <Providers>{children}</Providers>
       </body>
