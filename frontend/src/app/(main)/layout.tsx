@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useSocket } from "@/hooks/useSocket";
 import { Avatar } from "@/components/common/Avatar";
@@ -61,8 +61,13 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const router = useRouter();
+  const pathname = usePathname();
   const [newConvOpen, setNewConvOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // On mobile: show sidebar (conversation list) when on root/list pages;
+  // show main content when on a detail page (conversation, calls, stories, etc.)
+  const isDetailPage = pathname !== "/" && pathname !== "/conversations";
 
   function handleLogout() {
     import("@/services/api/auth").then((m) => m.authApi.logout().catch(() => {}));
@@ -75,9 +80,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
       className="flex h-screen overflow-hidden"
       style={{ backgroundColor: "var(--color-bg-app)" }}
     >
-      {/* Left nav rail */}
+      {/* Left nav rail — hidden on mobile, visible on desktop */}
       <nav
-        className="shrink-0 flex flex-col items-center py-3 gap-1"
+        className="hidden md:flex shrink-0 flex-col items-center py-3 gap-1"
         style={{
           width: 58,
           backgroundColor: "var(--color-bg-nav-strip)",
@@ -103,11 +108,10 @@ function AppShell({ children }: { children: React.ReactNode }) {
         <NavRailItem icon={LogOut} label="Log out" onClick={handleLogout} />
       </nav>
 
-      {/* Sidebar */}
+      {/* Sidebar — full-width on mobile when on list page, hidden when on detail page */}
       <aside
-        className="shrink-0 flex flex-col border-r"
+        className={`shrink-0 flex-col border-r md:flex md:w-[300px] ${isDetailPage ? "hidden" : "flex w-full"}`}
         style={{
-          width: 300,
           backgroundColor: "var(--color-bg-sidebar)",
           borderColor: "var(--color-border)",
         }}
@@ -146,8 +150,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
+      {/* Main content — full-width on mobile when on detail page, hidden otherwise */}
       <main
-        className="flex-1 min-w-0 flex flex-col"
+        className={`min-w-0 flex-col md:flex md:flex-1 ${isDetailPage ? "flex flex-1" : "hidden"}`}
         style={{ backgroundColor: "var(--color-bg-app)" }}
       >
         {children}

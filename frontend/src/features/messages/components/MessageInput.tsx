@@ -72,11 +72,12 @@ export function MessageInput({
       {replyTo && <ReplyPreview reply={replyTo} onCancel={onCancelReply} />}
 
       <div
+        className="px-2 md:px-4"
         style={{
           display: "flex",
           alignItems: "flex-end",
           gap: 8,
-          padding: "8px 16px",
+          padding: "8px 0",
           minHeight: 64,
         }}
       >

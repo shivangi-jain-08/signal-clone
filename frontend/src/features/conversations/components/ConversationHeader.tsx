@@ -108,13 +108,13 @@ export function ConversationHeader({
       </div>
 
       {/* Right-side action icons */}
-      <IconButton aria-label="Video call" size="md" onClick={() => router.push("/calls")}>
+      <IconButton aria-label="Video call" size="md" className="hidden md:inline-flex" onClick={() => router.push("/calls")}>
         <Video size={19} />
       </IconButton>
       <IconButton aria-label="Voice call" size="md" onClick={() => router.push("/calls")}>
         <Phone size={18} />
       </IconButton>
-      <IconButton aria-label="Search messages" size="md">
+      <IconButton aria-label="Search messages" size="md" className="hidden md:inline-flex">
         <Search size={18} />
       </IconButton>
       <IconButton

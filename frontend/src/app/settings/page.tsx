@@ -103,28 +103,42 @@ export default function SettingsPage() {
 
   return (
     <div
-      className="flex h-screen overflow-hidden"
+      className="flex flex-col md:flex-row h-screen overflow-hidden"
       style={{ backgroundColor: "var(--color-bg-app)" }}
     >
-      <nav
-        className="shrink-0 flex flex-col border-r py-4"
-        style={{
-          width: 220,
-          backgroundColor: "var(--color-bg-sidebar)",
-          borderColor: "var(--color-border)",
-        }}
+      {/* Mobile-only top bar */}
+      <div
+        className="flex md:hidden items-center gap-3 px-4 shrink-0 border-b"
+        style={{ height: 56, backgroundColor: "var(--color-bg-sidebar)", borderColor: "var(--color-border)" }}
       >
         <button
           type="button"
           onClick={() => router.push("/conversations")}
-          className="flex items-center gap-2 px-4 pb-3 text-msg-preview hover:underline"
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-accent)", padding: 4, display: "flex" }}
+          aria-label="Back"
+        >
+          <ArrowLeft size={20} />
+        </button>
+        <span className="text-header-name" style={{ color: "var(--color-text-primary)" }}>Settings</span>
+      </div>
+
+      {/* Nav — vertical sidebar on desktop, horizontal scrollable tabs on mobile */}
+      <nav
+        className="shrink-0 flex flex-row md:flex-col border-b md:border-b-0 md:border-r w-full md:w-[220px] overflow-x-auto md:overflow-x-visible md:py-4"
+        style={{ backgroundColor: "var(--color-bg-sidebar)", borderColor: "var(--color-border)" }}
+      >
+        {/* Desktop-only: back link + section label */}
+        <button
+          type="button"
+          onClick={() => router.push("/conversations")}
+          className="hidden md:flex items-center gap-2 px-4 pb-3 text-msg-preview hover:underline"
           style={{ color: "var(--color-accent)", background: "none", border: "none", cursor: "pointer" }}
         >
           <ArrowLeft size={14} />
           Back
         </button>
         <p
-          className="text-settings-label px-4 pb-2"
+          className="hidden md:block text-settings-label px-4 pb-2"
           style={{ color: "var(--color-text-tertiary)" }}
         >
           SETTINGS
@@ -134,14 +148,13 @@ export default function SettingsPage() {
             key={item.id}
             type="button"
             onClick={() => setSection(item.id)}
-            className="text-left px-4 py-2.5 text-btn transition-colors"
+            className="shrink-0 whitespace-nowrap text-btn transition-colors px-4 py-3 md:py-2.5 text-left border-b-2 md:border-b-0"
             style={{
-              backgroundColor:
-                section === item.id ? "var(--color-bg-item-active)" : "transparent",
-              color:
-                section === item.id
-                  ? "var(--color-text-primary)"
-                  : "var(--color-text-secondary)",
+              backgroundColor: section === item.id ? "var(--color-bg-item-active)" : "transparent",
+              color: section === item.id ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+              borderColor: section === item.id ? "var(--color-accent)" : "transparent",
+              border: "none",
+              borderBottom: `2px solid ${section === item.id ? "var(--color-accent)" : "transparent"}`,
             }}
           >
             {item.label}

@@ -47,15 +47,10 @@ export function GroupInfoPanel({
 
   return (
     <div
+      className="fixed inset-0 z-50 flex flex-col overflow-y-auto md:relative md:inset-auto md:z-auto md:w-80 md:shrink-0 md:h-full"
       style={{
-        width: 320,
-        flexShrink: 0,
         borderLeft: "1px solid var(--color-border)",
         backgroundColor: "var(--color-bg-sidebar)",
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        overflowY: "auto",
       }}
     >
       {/* Header */}
