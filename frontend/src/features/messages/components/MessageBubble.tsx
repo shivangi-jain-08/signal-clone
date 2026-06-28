@@ -72,7 +72,7 @@ export function MessageBubble({
   const handleLeave = useCallback(() => {
     leaveTimer.current = setTimeout(() => {
       setHovered(false);
-      setPickerOpen(false);
+      setPickerOpen(false); // safe: picker also has handleEnter/handleLeave, so it cancels this if hovered
     }, 150);
   }, []);
 
@@ -222,13 +222,25 @@ export function MessageBubble({
           <ReactionBar reactions={message.reactions} />
         )}
 
-        {/* Reaction picker */}
+        {/* Reaction picker — positioned above bubble, hover-tracked so it stays open */}
         {pickerOpen && !isDeleted && (
-          <ReactionPicker
-            messageId={message.id}
-            conversationId={conversationId}
-            onClose={() => setPickerOpen(false)}
-          />
+          <div
+            style={{
+              position: "absolute",
+              bottom: "100%",
+              paddingBottom: 6,
+              zIndex: 50,
+              ...(isSelf ? { right: 0 } : { left: 0 }),
+            }}
+            onMouseEnter={handleEnter}
+            onMouseLeave={handleLeave}
+          >
+            <ReactionPicker
+              messageId={message.id}
+              conversationId={conversationId}
+              onClose={() => setPickerOpen(false)}
+            />
+          </div>
         )}
       </div>
 

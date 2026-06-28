@@ -62,9 +62,6 @@ export function ReactionPicker({
         border: "1px solid var(--color-border)",
         borderRadius: 20,
         boxShadow: "var(--shadow-dropdown)",
-        position: "absolute",
-        zIndex: 50,
-        top: -40,
       }}
     >
       {COMMON_EMOJIS.map((emoji) => (
