@@ -8,6 +8,8 @@ import { groupsApi } from "@/services/api/groups";
 import { useQueryClient } from "@tanstack/react-query";
 import { X, Users, LogOut } from "lucide-react";
 import { Spinner } from "@/components/common/Spinner";
+import { toast } from "@/components/ui/toast";
+import { useRouter } from "next/navigation";
 
 interface GroupInfoPanelProps {
   groupId: string;
@@ -23,14 +25,24 @@ export function GroupInfoPanel({
   const { data: group, isLoading } = useGroup(groupId);
   const userId = useAuthStore((s) => s.user?.id ?? "");
   const qc = useQueryClient();
+  const router = useRouter();
 
   const isAdmin =
     group?.participants.find((p) => p.id === userId)?.is_admin ?? false;
 
   async function handleLeave() {
-    await groupsApi.removeMember(groupId, userId);
-    await qc.invalidateQueries({ queryKey: ["conversations"] });
-    onClose();
+    try {
+      await groupsApi.removeMember(groupId, userId);
+      await qc.invalidateQueries({ queryKey: ["conversations"] });
+      onClose();
+      router.push("/conversations");
+    } catch (err) {
+      const detail =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : undefined;
+      toast.error(detail ?? "Could not leave group.");
+    }
   }
 
   return (

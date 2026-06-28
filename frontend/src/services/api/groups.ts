@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { GroupDetail } from "@/types/models";
+import type { GroupDetail, GroupMember } from "@/types/models";
 
 export interface CreateGroupPayload {
   name: string;
@@ -14,16 +14,39 @@ export interface UpdateGroupPayload {
   avatar_url?: string | null;
 }
 
+interface BackendParticipant {
+  user: Omit<GroupMember, "is_admin" | "joined_at" | "last_read_at">;
+  is_admin: boolean;
+  joined_at: string;
+  last_read_at: string | null;
+}
+
+interface BackendGroupDetail extends Omit<GroupDetail, "participants"> {
+  participants: BackendParticipant[];
+}
+
+function normalizeGroup(raw: BackendGroupDetail): GroupDetail {
+  return {
+    ...raw,
+    participants: raw.participants.map((p) => ({
+      ...p.user,
+      is_admin: p.is_admin,
+      joined_at: p.joined_at,
+      last_read_at: p.last_read_at,
+    })),
+  };
+}
+
 export const groupsApi = {
   create: (payload: CreateGroupPayload) =>
     apiClient
-      .post<{ data: GroupDetail }>("/groups", payload)
-      .then((r) => r.data.data),
+      .post<{ data: BackendGroupDetail }>("/groups", payload)
+      .then((r) => normalizeGroup(r.data.data)),
 
   get: (groupId: string) =>
     apiClient
-      .get<{ data: GroupDetail }>(`/groups/${groupId}`)
-      .then((r) => r.data.data),
+      .get<{ data: BackendGroupDetail }>(`/groups/${groupId}`)
+      .then((r) => normalizeGroup(r.data.data)),
 
   update: (groupId: string, payload: UpdateGroupPayload) =>
     apiClient
