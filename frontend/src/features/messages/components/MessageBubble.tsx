@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import type { Message } from "@/types/models";
 import { Timestamp } from "@/components/common/Timestamp";
 import { MessageStatus } from "./MessageStatus";
@@ -62,6 +62,19 @@ export function MessageBubble({
   const [hovered, setHovered] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const qc = useQueryClient();
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleEnter = useCallback(() => {
+    if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
+    setHovered(true);
+  }, []);
+
+  const handleLeave = useCallback(() => {
+    leaveTimer.current = setTimeout(() => {
+      setHovered(false);
+      setPickerOpen(false);
+    }, 150);
+  }, []);
 
   const isDeleted = !!message.deleted_at;
   const isSystem = message.message_type === "system";
@@ -123,11 +136,8 @@ export function MessageBubble({
     <div
       className={`flex w-full ${isSelf ? "justify-end" : "justify-start"}`}
       style={{ position: "relative", marginBottom: 2 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => {
-        setHovered(false);
-        setPickerOpen(false);
-      }}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
     >
       <div className="max-w-[75%]" style={{ minWidth: 80, position: "relative" }}>
         {/* Sender name (group chat, non-self, top of group) */}
@@ -228,10 +238,12 @@ export function MessageBubble({
           className="flex items-center gap-0.5 absolute"
           style={{
             bottom: "100%",
-            marginBottom: 4,
+            paddingBottom: 6,
             zIndex: 10,
             ...(isSelf ? { right: 0 } : { left: 0 }),
           }}
+          onMouseEnter={handleEnter}
+          onMouseLeave={handleLeave}
         >
           {onReply && (
             <button
