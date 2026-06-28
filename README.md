@@ -52,25 +52,25 @@ A full-stack real-time messaging application modelled after Signal, built as an 
 │                    Browser                          │
 │                                                     │
 │  Next.js 15 (App Router)                            │
-│  ┌──────────────┐  ┌─────────────┐                 │
-│  │  React Query │  │   Zustand   │                 │
-│  │ (server state│  │(client state│                 │
-│  │  + caching)  │  │  + persist) │                 │
-│  └──────┬───────┘  └─────────────┘                 │
+│  ┌──────────────┐  ┌─────────────┐                  │
+│  │  React Query │  │   Zustand   │                  │
+│  │ (server state│  │(client state│                  │
+│  │  + caching)  │  │  + persist) │                  │
+│  └──────┬───────┘  └─────────────┘                  │
 │         │  REST (Axios)         WebSocket           │
-└─────────┼─────────────────────────┼────────────────┘
+└─────────┼─────────────────────────┼─────────────────┘
           │  HTTP /api/v1           │  /socket.io
           ▼                         ▼
 ┌─────────────────────────────────────────────────────┐
 │                FastAPI + Socket.IO (single process) │
 │                                                     │
-│  ┌──────────┐  ┌──────────┐  ┌────────────────┐   │
-│  │  Routers │  │  Services│  │  ConnectionMgr  │   │
-│  │ (v1 API) │  │ (business│  │  (room routing  │   │
-│  │          │  │  logic)  │  │  + presence)    │   │
-│  └────┬─────┘  └────┬─────┘  └────────┬───────┘   │
-│       └─────────────┴─────────────────┘            │
-│                      │                             │
+│  ┌──────────┐  ┌──────────┐  ┌────────────────┐     │
+│  │  Routers │  │  Services│  │  ConnectionMgr │     │
+│  │ (v1 API) │  │ (business│  │  (room routing │     │
+│  │          │  │  logic)  │  │  + presence)   │     │
+│  └────┬─────┘  └────┬─────┘  └────────┬───────┘     │
+│       └─────────────┴─────────────────┘             │
+│                      │                              │
 │              Repositories (async SQLAlchemy)        │
 └──────────────────────┬──────────────────────────────┘
                        │
