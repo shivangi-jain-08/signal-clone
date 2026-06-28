@@ -10,6 +10,7 @@ import { ConversationList } from "@/features/conversations/components/Conversati
 import { ConversationSearch } from "@/features/conversations/components/ConversationSearch";
 import { NewConversationModal } from "@/features/conversations/components/NewConversationModal";
 import { Edit3, MoreHorizontal, MessageSquare, Phone, BookImage, Settings, LogOut } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface NavRailItemProps {
   icon: React.FC<{ size?: number }>;
@@ -25,31 +26,13 @@ function NavRailItem({ icon: Icon, active, label, onClick }: NavRailItemProps) {
       aria-label={label}
       onClick={onClick}
       title={label}
-      style={{
-        width: 42,
-        height: 42,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 12,
-        border: "none",
-        cursor: "pointer",
-        backgroundColor: active ? "var(--color-nav-active-bg)" : "transparent",
-        color: active ? "var(--color-nav-icon-active)" : "var(--color-nav-icon)",
-        transition: "background-color 150ms, color 150ms",
-      }}
-      onMouseEnter={(e) => {
-        if (!active) {
-          e.currentTarget.style.backgroundColor = "var(--color-nav-hover-bg)";
-          e.currentTarget.style.color = "var(--color-nav-icon-active)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!active) {
-          e.currentTarget.style.backgroundColor = "transparent";
-          e.currentTarget.style.color = "var(--color-nav-icon)";
-        }
-      }}
+      style={{ width: 42, height: 42, border: "none" }}
+      className={cn(
+        "flex items-center justify-center rounded-xl cursor-pointer transition-colors duration-150",
+        active
+          ? "bg-black/9 dark:bg-white/13 text-black/85 dark:text-white"
+          : "bg-transparent text-black/40 dark:text-white/50 hover:bg-black/5 dark:hover:bg-white/8 hover:text-black/85 dark:hover:text-white",
+      )}
     >
       <Icon size={22} />
     </button>
