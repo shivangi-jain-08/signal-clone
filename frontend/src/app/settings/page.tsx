@@ -148,12 +148,10 @@ export default function SettingsPage() {
             key={item.id}
             type="button"
             onClick={() => setSection(item.id)}
-            className="shrink-0 whitespace-nowrap text-btn transition-colors px-4 py-3 md:py-2.5 text-left border-b-2 md:border-b-0"
+            className="shrink-0 whitespace-nowrap text-btn transition-colors px-4 py-3 md:py-2.5 text-left"
             style={{
               backgroundColor: section === item.id ? "var(--color-bg-item-active)" : "transparent",
               color: section === item.id ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-              borderColor: section === item.id ? "var(--color-accent)" : "transparent",
-              border: "none",
               borderBottom: `2px solid ${section === item.id ? "var(--color-accent)" : "transparent"}`,
             }}
           >
