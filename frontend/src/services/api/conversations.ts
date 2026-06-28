@@ -8,12 +8,26 @@ export interface ConversationList {
   offset: number;
 }
 
+export interface ConversationParticipant extends UserPublic {
+  is_admin: boolean;
+  joined_at: string;
+  last_read_at: string | null;
+}
+
 export interface ConversationDetail extends Conversation {
-  participants: (UserPublic & {
-    is_admin: boolean;
-    joined_at: string;
-    last_read_at: string | null;
-  })[];
+  participants: ConversationParticipant[];
+}
+
+// Backend returns participants nested as { user: UserPublic, is_admin, joined_at, last_read_at }
+interface BackendParticipantDetail {
+  user: UserPublic;
+  is_admin: boolean;
+  joined_at: string;
+  last_read_at: string | null;
+}
+
+interface BackendConversationDetail extends Omit<ConversationDetail, "participants"> {
+  participants: BackendParticipantDetail[];
 }
 
 export interface ConversationSearchResult extends Conversation {
@@ -35,8 +49,19 @@ export const conversationsApi = {
 
   get: (id: string) =>
     apiClient
-      .get<{ data: ConversationDetail }>(`/conversations/${id}`)
-      .then((r) => r.data.data),
+      .get<{ data: BackendConversationDetail }>(`/conversations/${id}`)
+      .then((r) => {
+        const raw = r.data.data;
+        return {
+          ...raw,
+          participants: raw.participants.map((p) => ({
+            ...p.user,
+            is_admin: p.is_admin,
+            joined_at: p.joined_at,
+            last_read_at: p.last_read_at,
+          })),
+        } as ConversationDetail;
+      }),
 
   createDirect: (target_user_id: string) =>
     apiClient
