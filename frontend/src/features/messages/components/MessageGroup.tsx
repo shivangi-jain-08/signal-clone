@@ -46,7 +46,7 @@ export function MessageGroup({
         </div>
       )}
 
-      <div className={`flex flex-col gap-0.5 ${isSelf ? "items-end" : "items-start"}`}>
+      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
         {messages.map((msg, idx) => {
           const n = messages.length;
           const position =

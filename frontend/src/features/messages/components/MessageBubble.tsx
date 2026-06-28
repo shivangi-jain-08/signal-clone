@@ -121,7 +121,7 @@ export function MessageBubble({
 
   return (
     <div
-      className={`flex ${isSelf ? "justify-end" : "justify-start"}`}
+      className={`flex w-full ${isSelf ? "justify-end" : "justify-start"}`}
       style={{ position: "relative", marginBottom: 2 }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => {
@@ -129,7 +129,7 @@ export function MessageBubble({
         setPickerOpen(false);
       }}
     >
-      <div className="max-w-[85%] sm:max-w-[78%] lg:max-w-[68%]" style={{ minWidth: 80, position: "relative" }}>
+      <div className="max-w-[75%]" style={{ minWidth: 80, position: "relative" }}>
         {/* Sender name (group chat, non-self, top of group) */}
         {showSenderName && (position === "top" || position === "solo") && (
           <div
