@@ -7,11 +7,12 @@ import { MessageGroup } from "./MessageGroup";
 import { TypingIndicator } from "./TypingIndicator";
 import { Spinner } from "@/components/common/Spinner";
 import { useAuthStore } from "@/store/authStore";
+import { parseUtc } from "@/lib/utils";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"] as const;
 
 function formatDateLabel(iso: string): string {
-  const d = new Date(iso);
+  const d = parseUtc(iso);
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const t = d.getTime();
@@ -40,8 +41,8 @@ function groupMessages(
   for (const msg of messages) {
     const last = groups[groups.length - 1];
     const timeDiff = last
-      ? new Date(msg.created_at).getTime() -
-        new Date(last.messages[last.messages.length - 1]!.created_at).getTime()
+      ? parseUtc(msg.created_at).getTime() -
+        parseUtc(last.messages[last.messages.length - 1]!.created_at).getTime()
       : Infinity;
     if (
       last &&

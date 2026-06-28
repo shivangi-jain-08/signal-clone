@@ -6,6 +6,22 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Parse an ISO timestamp string as UTC.
+ *
+ * SQLite stores timezone-naive datetimes; Pydantic serialises them without a
+ * timezone designator (e.g. "2026-06-29T12:30:00").  JavaScript treats bare
+ * strings as local time, which shifts them by the UTC offset (5:30 in IST).
+ * Appending "Z" forces UTC interpretation so toLocaleTimeString() converts
+ * correctly to the user's local timezone.
+ */
+export function parseUtc(iso: string): Date {
+  if (iso && !iso.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(iso)) {
+    return new Date(iso + "Z");
+  }
+  return new Date(iso);
+}
+
 export function truncate(str: string, maxLength: number): string {
   if (str.length <= maxLength) return str;
   return `${str.slice(0, maxLength - 1)}…`;

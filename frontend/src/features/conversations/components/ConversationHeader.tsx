@@ -6,6 +6,7 @@ import { Avatar } from "@/components/common/Avatar";
 import { IconButton } from "@/components/ui/icon-button";
 import { OnlineDot } from "@/components/common/OnlineDot";
 import { ArrowLeft, Video, Phone, Search, MoreVertical } from "lucide-react";
+import { parseUtc } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { usePresenceStore } from "@/store/presenceStore";
 
@@ -50,7 +51,7 @@ export function ConversationHeader({
     if (isOnline) {
       statusText = "Online";
     } else if (lastSeen) {
-      const date = new Date(lastSeen);
+      const date = parseUtc(lastSeen);
       const now = new Date();
       const diffMin = Math.floor((now.getTime() - date.getTime()) / 60000);
       if (diffMin < 1) statusText = "Last seen just now";

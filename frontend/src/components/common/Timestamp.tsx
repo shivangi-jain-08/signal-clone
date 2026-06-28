@@ -1,8 +1,10 @@
+import { parseUtc } from "@/lib/utils";
+
 const DAYS   = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 
 function formatConversationTimestamp(iso: string): string {
-  const d = new Date(iso);
+  const d = parseUtc(iso);
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const t = d.getTime();
@@ -16,7 +18,7 @@ function formatConversationTimestamp(iso: string): string {
 }
 
 function formatMessageTimestamp(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return parseUtc(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 interface TimestampProps {
