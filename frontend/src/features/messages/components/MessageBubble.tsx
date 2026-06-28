@@ -222,11 +222,16 @@ export function MessageBubble({
         )}
       </div>
 
-      {/* Hover action buttons */}
+      {/* Hover action buttons — floats above the bubble, never off-screen */}
       {hovered && !isDeleted && (
         <div
-          className={`flex items-center gap-0.5 absolute top-0 ${isSelf ? "right-full mr-2" : "left-full ml-2"}`}
-          style={{ zIndex: 10 }}
+          className="flex items-center gap-0.5 absolute"
+          style={{
+            bottom: "100%",
+            marginBottom: 4,
+            zIndex: 10,
+            ...(isSelf ? { right: 0 } : { left: 0 }),
+          }}
         >
           {onReply && (
             <button
