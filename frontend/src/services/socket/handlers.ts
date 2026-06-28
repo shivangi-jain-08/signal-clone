@@ -293,11 +293,25 @@ export function registerSocketHandlers(): () => void {
     patchMessage(p.conversation_id, p.message_id, { status: p.status });
   };
 
-  // ── Conversation read (someone else read the conv) ────────────────────
+  // ── Conversation read ──────────────────────────────────────────────────
   const onConversationRead = (p: ConversationReadPayload) => {
-    // Update unread count to 0 for the reading user (handled server-side for caller).
-    // Invalidate so the list refreshes the unread badge.
-    void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    const currentUserId = useAuthStore.getState().user?.id;
+    if (p.user_id === currentUserId) {
+      // Our own read confirmed by server — zero unread directly in cache
+      queryClient.setQueryData<ConversationList>(
+        ["conversations"],
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            conversations: old.conversations.map((c) =>
+              c.id === p.conversation_id ? { ...c, unread_count: 0 } : c,
+            ),
+          };
+        },
+      );
+    }
+    // For other participants reading, their unread counts are irrelevant to us
   };
 
   // ── Group lifecycle ───────────────────────────────────────────────────────

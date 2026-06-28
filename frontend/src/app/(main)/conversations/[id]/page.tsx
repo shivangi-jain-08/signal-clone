@@ -1,8 +1,9 @@
 "use client";
 
 import { use, useState, useCallback, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { conversationsApi } from "@/services/api/conversations";
+import type { ConversationList } from "@/services/api/conversations";
 import { ConversationHeader } from "@/features/conversations/components/ConversationHeader";
 import { MessageList } from "@/features/messages/components/MessageList";
 import { MessageInput } from "@/features/messages/components/MessageInput";
@@ -30,11 +31,29 @@ export default function ConversationPage({ params }: ConversationPageProps) {
     (s) => s.setActiveConversation,
   );
 
-  // Set active conversation on mount / change
+  const qc = useQueryClient();
+
+  // Set active conversation + immediately mark read on open
   useEffect(() => {
     setActiveConversation(id);
+
+    // Zero unread badge immediately in local cache
+    qc.setQueryData<ConversationList>(["conversations"], (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        conversations: old.conversations.map((c) =>
+          c.id === id ? { ...c, unread_count: 0 } : c,
+        ),
+      };
+    });
+
+    // Notify backend via socket and REST
+    getSocket().emit("message_read", { conversation_id: id });
+    conversationsApi.markRead(id).catch(() => {});
+
     return () => setActiveConversation(null);
-  }, [id, setActiveConversation]);
+  }, [id, setActiveConversation, qc]);
 
   const { data: conversation, isLoading: convLoading } = useQuery({
     queryKey: ["conversation", id],
@@ -72,11 +91,6 @@ export default function ConversationPage({ params }: ConversationPageProps) {
 
   // Group info panel
   const [infoPanelOpen, setInfoPanelOpen] = useState(false);
-
-  // Mark-read
-  const markRead = useCallback(() => {
-    getSocket().emit("message_read", { conversation_id: id });
-  }, [id]);
 
   // Flatten infinite pages: pages are newest-first, so reverse for display
   const messages = messagesData
@@ -144,10 +158,7 @@ export default function ConversationPage({ params }: ConversationPageProps) {
 
         <MessageInput
           conversationId={id}
-          onSend={(content, opts) => {
-            send(content, opts);
-            markRead();
-          }}
+          onSend={(content, opts) => send(content, opts)}
           replyTo={replyTo}
           onCancelReply={handleCancelReply}
         />
