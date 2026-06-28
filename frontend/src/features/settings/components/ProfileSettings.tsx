@@ -25,7 +25,11 @@ export function ProfileSettings() {
       updateUser(updated);
       toast.success("Profile updated.");
     } catch (err) {
-      toast.error((err as any)?.response?.data?.detail ?? "Failed to update profile.");
+      const detail =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : undefined;
+      toast.error(detail ?? "Failed to update profile.");
     } finally {
       setLoading(false);
     }

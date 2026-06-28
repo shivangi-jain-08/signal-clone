@@ -8,7 +8,11 @@ import { useAuthStore } from "@/store/authStore";
 import { toast } from "@/components/ui/toast";
 
 function extractError(e: unknown, fallback: string): string {
-  return (e as any)?.response?.data?.detail ?? fallback;
+  if (e && typeof e === "object" && "response" in e) {
+    const r = (e as { response?: { data?: { detail?: string } } }).response;
+    return r?.data?.detail ?? fallback;
+  }
+  return fallback;
 }
 
 export function useLoginFlow() {
