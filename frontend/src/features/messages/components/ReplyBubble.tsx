@@ -40,10 +40,8 @@ export function ReplyBubble({ reply, isSelf = false }: ReplyBubbleProps) {
           display: "block",
           fontSize: 12,
           lineHeight: 1.4,
-          color: isDeleted
-            ? "var(--color-text-tertiary)"
-            : isSelf
-            ? "rgba(255,255,255,0.75)"
+          color: isSelf
+            ? "rgba(255,255,255,0.7)"
             : "var(--color-text-secondary)",
           fontStyle: isDeleted ? "italic" : "normal",
           overflow: "hidden",

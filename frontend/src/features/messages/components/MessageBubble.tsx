@@ -174,7 +174,7 @@ export function MessageBubble({
             <span
               className="text-msg-content"
               style={{
-                color: "var(--color-text-tertiary)",
+                color: isSelf ? "rgba(255,255,255,0.7)" : "var(--color-text-secondary)",
                 fontStyle: "italic",
               }}
             >

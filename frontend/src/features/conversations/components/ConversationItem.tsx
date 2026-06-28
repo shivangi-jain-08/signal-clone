@@ -92,9 +92,7 @@ export function ConversationItem({ conversation, currentUserId, active }: Conver
           <span
             className="text-msg-preview truncate"
             style={{
-              color: previewDeleted
-                ? "var(--color-text-tertiary)"
-                : "var(--color-text-secondary)",
+              color: "var(--color-text-secondary)",
               fontStyle: previewDeleted ? "italic" : "normal",
             }}
           >
