@@ -5,7 +5,7 @@ import type { Conversation } from "@/types/models";
 import { Avatar } from "@/components/common/Avatar";
 import { IconButton } from "@/components/ui/icon-button";
 import { OnlineDot } from "@/components/common/OnlineDot";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft, Video, Phone, Search, MoreVertical } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { usePresenceStore } from "@/store/presenceStore";
 
@@ -106,12 +106,23 @@ export function ConversationHeader({
         )}
       </div>
 
-      {/* Info button */}
-      {onInfoClick && (
-        <IconButton aria-label="Conversation info" size="md" onClick={onInfoClick}>
-          <Info size={18} />
-        </IconButton>
-      )}
+      {/* Right-side action icons */}
+      <IconButton aria-label="Video call" size="md">
+        <Video size={19} />
+      </IconButton>
+      <IconButton aria-label="Voice call" size="md">
+        <Phone size={18} />
+      </IconButton>
+      <IconButton aria-label="Search messages" size="md">
+        <Search size={18} />
+      </IconButton>
+      <IconButton
+        aria-label={onInfoClick ? "Group info" : "More options"}
+        size="md"
+        onClick={onInfoClick}
+      >
+        <MoreVertical size={18} />
+      </IconButton>
     </div>
   );
 }

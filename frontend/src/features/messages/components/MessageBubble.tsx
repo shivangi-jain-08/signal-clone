@@ -32,8 +32,8 @@ function senderColor(userId: string): string {
 }
 
 function getBorderRadius(isSelf: boolean, position: string): string {
-  const R = "18px";
-  const r = "4px";
+  const R = "20px";
+  const r = "5px";
   if (isSelf) {
     switch (position) {
       case "top":    return `${R} ${r} ${r} ${R}`;
@@ -160,7 +160,7 @@ export function MessageBubble({
           style={{
             backgroundColor: bgColor,
             borderRadius,
-            padding: "8px 12px",
+            padding: "8px 12px 6px 12px",
             position: "relative",
           }}
         >
@@ -169,7 +169,7 @@ export function MessageBubble({
             <ReplyBubble reply={message.reply_to} isSelf={isSelf} />
           )}
 
-          {/* Content */}
+          {/* Content — inline spacer reserves room for the timestamp on the last line */}
           {isDeleted ? (
             <span
               className="text-msg-content"
@@ -179,6 +179,7 @@ export function MessageBubble({
               }}
             >
               This message was deleted
+              <span style={{ display: "inline-block", width: isSelf ? 62 : 42, height: 1 }} aria-hidden="true" />
             </span>
           ) : (
             <span
@@ -190,29 +191,37 @@ export function MessageBubble({
                 <span
                   style={{
                     fontSize: 11,
-                    color: isSelf
-                      ? "rgba(255,255,255,0.55)"
-                      : "var(--color-text-tertiary)",
+                    color: isSelf ? "rgba(255,255,255,0.55)" : "var(--color-text-tertiary)",
                     marginLeft: 4,
                   }}
                 >
                   (edited)
                 </span>
               )}
+              {/* Spacer pushes last line to leave room for the overlaid timestamp */}
+              <span style={{ display: "inline-block", width: isSelf ? 62 : 42, height: 1 }} aria-hidden="true" />
             </span>
           )}
 
-          {/* Timestamp + status row */}
+          {/* Timestamp + status — overlaid at bottom-right, never covers text */}
           <div
-            className={`flex items-center gap-1 mt-1 ${isSelf ? "justify-end" : "justify-start"}`}
+            style={{
+              position: "absolute",
+              bottom: 5,
+              right: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
+              lineHeight: 1,
+            }}
           >
             <Timestamp
               iso={message.created_at}
               variant="message"
-              style={isSelf ? { color: "rgba(255,255,255,0.65)" } : undefined}
+              style={{ color: isSelf ? "rgba(255,255,255,0.65)" : "var(--color-text-timestamp)" }}
             />
             {isSelf && !isDeleted && (
-              <MessageStatus status={message.status} size={13} />
+              <MessageStatus status={message.status} size={12} />
             )}
           </div>
         </div>
