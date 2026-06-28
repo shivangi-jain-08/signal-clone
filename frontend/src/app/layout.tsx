@@ -5,6 +5,7 @@ import { Providers } from "./providers";
 export const metadata: Metadata = {
   title: "Signal",
   description: "Signal Desktop — private messaging",
+  icons: { icon: "/logo.png" },
 };
 
 export const viewport: Viewport = {
