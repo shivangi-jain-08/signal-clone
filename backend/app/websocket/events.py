@@ -31,6 +31,12 @@ class ServerEvents:
     # Handshake ack — emitted to the connecting sid
     CONNECTED = "connected"
 
+    # Group lifecycle — emitted to conv:<conversation_id> or user:<user_id>
+    GROUP_UPDATED = "group_updated"
+    GROUP_DELETED = "group_deleted"
+    MEMBER_ADDED = "member_added"
+    MEMBER_REMOVED = "member_removed"
+
 
 class ClientEvents:
     """Events the client emits to the server."""
