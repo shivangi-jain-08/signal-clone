@@ -8,5 +8,6 @@ export function useConversationList() {
     queryKey: ["conversations"],
     queryFn: () => conversationsApi.list({ limit: 100 }),
     select: (data) => data.conversations,
+    staleTime: 30_000, // 30s — prevents focus-triggered refetches from resetting optimistic timestamps
   });
 }

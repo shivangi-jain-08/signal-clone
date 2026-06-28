@@ -152,6 +152,7 @@ function prependMessage(
 function bumpConversation(
   convId: string,
   updates: Partial<Pick<Conversation, "last_message" | "unread_count">>,
+  updatedAt?: string,
 ): void {
   queryClient.setQueryData<ConversationList>(
     ["conversations"],
@@ -164,7 +165,9 @@ function bumpConversation(
         return old;
       }
       const conv = old.conversations[idx]!;
-      const updated = { ...conv, ...updates, updated_at: new Date().toISOString() };
+      // Prefer server-provided timestamp (from the message) so refetches
+      // don't flip the displayed time back to a stale client-clock value.
+      const updated = { ...conv, ...updates, updated_at: updatedAt ?? conv.updated_at };
       const without = old.conversations.filter((c) => c.id !== convId);
       return {
         ...old,
@@ -223,17 +226,21 @@ export function registerSocketHandlers(): () => void {
       unreadUpdate = { unread_count: (currentConv?.unread_count ?? 0) + 1 };
     }
 
-    bumpConversation(raw.conversation_id, {
-      last_message: {
-        id: msg.id,
-        content: msg.content,
-        message_type: msg.message_type,
-        sender_id: msg.sender.id,
-        created_at: msg.created_at,
-        deleted_at: null,
+    bumpConversation(
+      raw.conversation_id,
+      {
+        last_message: {
+          id: msg.id,
+          content: msg.content,
+          message_type: msg.message_type,
+          sender_id: msg.sender.id,
+          created_at: msg.created_at,
+          deleted_at: null,
+        },
+        ...unreadUpdate,
       },
-      ...unreadUpdate,
-    });
+      msg.created_at, // use server timestamp — prevents flip on refetch
+    );
   };
 
   // ── Message edited ───────────────────────────────────────────────────────
