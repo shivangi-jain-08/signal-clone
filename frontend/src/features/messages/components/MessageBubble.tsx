@@ -129,7 +129,7 @@ export function MessageBubble({
         setPickerOpen(false);
       }}
     >
-      <div style={{ maxWidth: "65%", minWidth: 80, position: "relative" }}>
+      <div className="max-w-[85%] sm:max-w-[78%] lg:max-w-[68%]" style={{ minWidth: 80, position: "relative" }}>
         {/* Sender name (group chat, non-self, top of group) */}
         {showSenderName && (position === "top" || position === "solo") && (
           <div
