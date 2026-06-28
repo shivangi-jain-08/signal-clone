@@ -1,4 +1,5 @@
-// Empty state / welcome screen — implemented in UI phase
+import { redirect } from "next/navigation";
+
 export default function MainPage() {
-  return null;
+  redirect("/conversations");
 }

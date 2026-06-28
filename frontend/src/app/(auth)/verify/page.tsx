@@ -1,4 +1,5 @@
-// OTP verify page — implemented in auth feature phase
+import { redirect } from "next/navigation";
+
 export default function VerifyPage() {
-  return null;
+  redirect("/login");
 }
