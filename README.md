@@ -3,8 +3,7 @@
 A real-time messaging app built with FastAPI + Next.js 15. This document covers the decisions I made, the tradeoffs I accepted, and the things that broke along the way.
 
 **Live:** https://signal-clone-xi.vercel.app  
-**API:** https://signal-clone-2han.onrender.com  
-**Docs:** https://signal-clone-2han.onrender.com/docs
+**API Docs:** https://signal-clone-2han.onrender.com/docs
 
 ---
 
