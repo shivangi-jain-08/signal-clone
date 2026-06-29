@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useCallback, useEffect } from "react";
+import { use, useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { conversationsApi } from "@/services/api/conversations";
 import type { ConversationList } from "@/services/api/conversations";
@@ -46,6 +46,15 @@ export default function ConversationPage({ params }: ConversationPageProps) {
   );
 
   const qc = useQueryClient();
+
+  // Capture the unread count once, before the open effect zeroes the badge.
+  // We store it in a ref so it stays stable for the lifetime of this page instance.
+  const initialUnreadRef = useRef<number | null>(null);
+  if (initialUnreadRef.current === null) {
+    const list = qc.getQueryData<ConversationList>(["conversations"]);
+    initialUnreadRef.current =
+      list?.conversations.find((c) => c.id === id)?.unread_count ?? 0;
+  }
 
   // Set active conversation + immediately mark read on open
   useEffect(() => {
@@ -169,6 +178,7 @@ export default function ConversationPage({ params }: ConversationPageProps) {
             onLoadMore={() => void fetchNextPage()}
             onReply={handleReply}
             conversationId={id}
+            unreadCount={initialUnreadRef.current ?? 0}
           />
         )}
 

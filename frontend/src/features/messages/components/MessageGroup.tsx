@@ -34,7 +34,6 @@ export function MessageGroup({
       {/* Avatar placeholder so bubbles stay aligned */}
       {showAvatar && (
         <div style={{ width: 28, flexShrink: 0 }}>
-          {/* only the last bubble in group shows avatar */}
           <div style={{ opacity: 1 }}>
             <Avatar
               src={sender.avatar_url}
