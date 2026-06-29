@@ -18,8 +18,9 @@ A real-time messaging app built with FastAPI + Next.js 15. This document covers 
 - Online/last-seen presence that handles multiple open tabs correctly
 - Responsive layout — mobile shows one panel at a time, desktop shows three columns
 - Dark/light/system theme with no flash on hard refresh
+- Image and file attachments via Cloudinary (paperclip button in message input, preview before send)
 
-**What's explicitly not built:** actual E2E encryption (the notice in the UI is a mock), voice/video calls, stories, media uploads, and anything that costs money to run.
+**What's explicitly not built:** actual E2E encryption (the notice in the UI is a mock), voice/video calls, stories.
 
 ---
 
@@ -34,13 +35,24 @@ A real-time messaging app built with FastAPI + Next.js 15. This document covers 
 
 The most important structural decision was keeping everything in one process:
 
-```
-Browser
-  ├── REST (Axios + TanStack Query)  ──►  FastAPI  ──►  SQLite
-  └── WebSocket (socket.io-client)  ──►  Socket.IO (ASGI, same process)
-                                              │
-                                        ConnectionManager
-                                        (in-memory dict)
+```mermaid
+flowchart LR
+    subgraph C["Browser — Next.js 15"]
+        AX["Axios · TanStack Query"]
+        WS["socket.io-client"]
+    end
+    subgraph B["Python Backend — single process"]
+        API["FastAPI\n/api/v1"]
+        SIO["Socket.IO ASGI\n/socket.io"]
+        CM["ConnectionManager\nin-memory dict"]
+    end
+    DB[("SQLite\nasync SQLAlchemy")]
+
+    AX -- "REST" --> API
+    WS -- "WebSocket" --> SIO
+    API --> DB
+    SIO --> DB
+    SIO --- CM
 ```
 
 Socket.IO is mounted as an ASGI sub-application *inside* FastAPI — not a separate service. No Redis, no message broker, no deploy complexity. The tradeoff: it won't scale horizontally. A Redis adapter would be needed for multiple instances. For a single-instance demo, the simplicity is worth it.
@@ -49,14 +61,10 @@ Socket.IO is mounted as an ASGI sub-application *inside* FastAPI — not a separ
 
 Socket handlers write directly into TanStack Query's cache — there's no parallel event store:
 
-```
-Socket event arrives
-       │
-       ▼
-queryClient.setQueryData(["messages", convId], ...)
-       │
-       ▼
-React re-renders (Query observes the cache)
+```mermaid
+flowchart TD
+    A["Socket event\ne.g. new_message"] --> B["queryClient.setQueryData\n[messages, convId]"]
+    B --> C["React re-renders\nQuery observes cache"]
 ```
 
 One source of truth for server data. The socket is just a push channel for cache updates, not a separate state system.
@@ -86,6 +94,81 @@ Three decisions worth explaining:
 **Soft deletes via `deleted_at`, not a boolean.** When a message is deleted, `content` is cleared and `deleted_at` is stamped. The row stays. This is how Signal works — the "This message was deleted" ghost keeps reply threads coherent and avoids orphaned `reply_to_id` references. A hard delete would cascade-null those FKs and lose context.
 
 **Unread counts are computed, not stored.** `conversation_participants.last_read_at` is a cursor timestamp. Unread = messages after that cursor, excluding own. No counter column that can drift out of sync with actual reads.
+
+### Entity Relationship Diagram
+
+```mermaid
+erDiagram
+    users {
+        string id PK
+        string phone_number
+        string username
+        string display_name
+        bool is_online
+        datetime last_seen
+    }
+    sessions {
+        string id PK
+        string user_id FK
+        datetime expires_at
+    }
+    contacts {
+        string owner_id FK
+        string contact_user_id FK
+        string nickname
+    }
+    conversations {
+        string id PK
+        string type
+        datetime updated_at
+    }
+    conversation_participants {
+        string conversation_id FK
+        string user_id FK
+        datetime last_read_at
+        bool is_admin
+        bool is_archived
+    }
+    groups {
+        string conversation_id FK
+        string name
+        string description
+        string created_by FK
+    }
+    messages {
+        string id PK
+        string conversation_id FK
+        string sender_id FK
+        text content
+        string message_type
+        string reply_to_id FK
+        datetime deleted_at
+        datetime edited_at
+    }
+    message_status {
+        string message_id FK
+        string user_id FK
+        string status
+    }
+    reactions {
+        string message_id FK
+        string user_id FK
+        string emoji
+    }
+
+    users ||--o{ sessions : "issued to"
+    users ||--o{ contacts : "owns"
+    users ||--o{ conversation_participants : "member"
+    users ||--o{ messages : "sends"
+    users ||--o{ message_status : "tracked"
+    users ||--o{ reactions : "gives"
+    conversations ||--o{ conversation_participants : "has"
+    conversations ||--o| groups : "group metadata"
+    conversations ||--o{ messages : "contains"
+    messages ||--o{ message_status : "delivery"
+    messages ||--o{ reactions : "receives"
+    messages }o--o| messages : "reply_to"
+```
 
 ### Full schema
 
@@ -251,6 +334,10 @@ uvicorn app.main:app --reload --port 8000
 ```bash
 cd frontend
 npm install
+# Optional: add Cloudinary credentials for attachment uploads
+# Create frontend/.env.local with:
+#   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
+#   NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your_unsigned_preset
 npm run dev
 ```
 
@@ -279,7 +366,7 @@ All use OTP **`123456`**. Pre-seeded with 6 direct chats and 3 group conversatio
 
 - **OTP is mocked.** `123456` always works. Plugging in Twilio is ~20 lines; it costs money to run.
 - **SQLite over Postgres.** Zero infrastructure for local dev. The async SQLAlchemy layer is DB-agnostic — switching is a one-line connection string change. The real cost is no concurrent writes at scale.
-- **No media uploads.** `message_type: 'image' | 'file'` exists in the schema; the frontend only sends text. The `MEDIA_DIR` env var is reserved for a future upload endpoint.
+- **Attachments go to Cloudinary.** Images and files are uploaded directly from the browser to a Cloudinary unsigned preset. Files persist on Cloudinary's CDN — no server-side storage needed, no ephemeral-disk problem on Render. Requires `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` and `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET` in the frontend env. Without these vars, the paperclip button is visible but upload will fail with an informative error.
 - **Ephemeral messages are schema-only.** `messages.disappears_at` is modelled but no background job reads it.
 - **E2E encryption is a UI label.** Messages are stored and transmitted in plaintext. Full Signal Protocol (X3DH, double ratchet, sealed sender) is not implemented.
 - **Single-instance WebSocket.** `ConnectionManager` uses an in-process dict. Works for one server; needs a Redis adapter for horizontal scale.

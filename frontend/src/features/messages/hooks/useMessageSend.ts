@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
 import { messagesApi, type SendMessagePayload, type MessageList } from "@/services/api/messages";
 import { useAuthStore } from "@/store/authStore";
-import type { Message } from "@/types/models";
+import type { Message, MessageType } from "@/types/models";
 
 export function useMessageSend(conversationId: string) {
   const qc = useQueryClient();
@@ -142,11 +142,11 @@ export function useMessageSend(conversationId: string) {
   });
 
   const send = useCallback(
-    (content: string, opts?: { replyToId?: string }) => {
+    (content: string, opts?: { replyToId?: string; messageType?: MessageType }) => {
       const clientId = crypto.randomUUID();
       mutation.mutate({
         content,
-        message_type: "text",
+        message_type: opts?.messageType ?? "text",
         reply_to_id: opts?.replyToId ?? null,
         client_id: clientId,
       });

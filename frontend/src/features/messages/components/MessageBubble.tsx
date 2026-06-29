@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { Message } from "@/types/models";
 import { Timestamp } from "@/components/common/Timestamp";
 import { MessageStatus } from "./MessageStatus";
 import { ReactionBar } from "./ReactionBar";
 import { ReactionPicker } from "./ReactionPicker";
 import { ReplyBubble } from "./ReplyBubble";
-import { Reply, Trash2, Copy, SmilePlus } from "lucide-react";
+import { Reply, Trash2, Copy, SmilePlus, FileIcon, Download, X } from "lucide-react";
 import { messagesApi } from "@/services/api/messages";
 import { useQueryClient } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
@@ -57,8 +58,16 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const [hovered, setHovered] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const qc = useQueryClient();
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setLightboxOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxOpen]);
 
   const handleEnter = useCallback(() => {
     if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
@@ -93,6 +102,14 @@ export function MessageBubble({
   const bgColor = isSelf ? "var(--color-bg-bubble-sent)" : "var(--color-bg-bubble-recv)";
   const textColor = isSelf ? "var(--color-text-bubble-sent)" : "var(--color-text-bubble-recv)";
 
+  function handleCopy() {
+    let text = message.content;
+    if (message.message_type === "file") {
+      text = safeParseFile(message.content).url;
+    }
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+
   async function handleDelete() {
     await messagesApi.delete(message.id);
     qc.setQueryData<InfiniteData<MessageList>>(["messages", conversationId], (old) => {
@@ -109,10 +126,6 @@ export function MessageBubble({
         })),
       };
     });
-  }
-
-  function handleCopy() {
-    navigator.clipboard.writeText(message.content).catch(() => {});
   }
 
   // Action buttons — shared between both sides, order mirrors the side
@@ -194,7 +207,10 @@ export function MessageBubble({
           style={{
             backgroundColor: bgColor,
             borderRadius,
-            padding: "8px 12px 6px 12px",
+            padding:
+              !isDeleted && (message.message_type === "image" || message.message_type === "file")
+                ? "8px 12px 26px 12px"
+                : "8px 12px 6px 12px",
             position: "relative",
           }}
         >
@@ -213,6 +229,106 @@ export function MessageBubble({
               This message was deleted
               <span style={{ display: "inline-block", width: isSelf ? 62 : 42, height: 1 }} aria-hidden="true" />
             </span>
+          ) : message.message_type === "image" ? (
+            <>
+              <img
+                src={message.content}
+                alt="image"
+                onClick={() => setLightboxOpen(true)}
+                style={{
+                  maxWidth: 240,
+                  maxHeight: 300,
+                  width: "auto",
+                  height: "auto",
+                  borderRadius: 8,
+                  display: "block",
+                  cursor: "zoom-in",
+                }}
+              />
+              {lightboxOpen && createPortal(
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 1000,
+                    backgroundColor: "rgba(0,0,0,0.88)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "zoom-out",
+                  }}
+                  onClick={() => setLightboxOpen(false)}
+                >
+                  <img
+                    src={message.content}
+                    alt="image"
+                    style={{
+                      maxWidth: "90vw",
+                      maxHeight: "90vh",
+                      objectFit: "contain",
+                      borderRadius: 8,
+                      boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
+                      cursor: "default",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Close"
+                    onClick={() => setLightboxOpen(false)}
+                    style={{
+                      position: "absolute",
+                      top: 16,
+                      right: 16,
+                      width: 36,
+                      height: 36,
+                      borderRadius: "50%",
+                      border: "none",
+                      backgroundColor: "rgba(255,255,255,0.15)",
+                      color: "#fff",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>,
+                document.body,
+              )}
+            </>
+          ) : message.message_type === "file" ? (
+            (() => {
+              const f = safeParseFile(message.content);
+              return (
+                <a
+                  href={f.url}
+                  download={f.name}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", minWidth: 180 }}
+                >
+                  <FileIcon size={22} style={{ color: textColor, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p className="truncate text-msg-content" style={{ color: textColor, fontWeight: 500 }}>
+                      {f.name}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: 11,
+                        color: isSelf ? "rgba(255,255,255,0.6)" : "var(--color-text-tertiary)",
+                      }}
+                    >
+                      {formatFileBytes(f.size)}
+                    </p>
+                  </div>
+                  <Download size={14} style={{ color: textColor, opacity: 0.7, flexShrink: 0 }} />
+                </a>
+              );
+            })()
           ) : (
             <span
               className="text-msg-content"
@@ -286,6 +402,20 @@ export function MessageBubble({
       {!isSelf && actionBar}
     </div>
   );
+}
+
+function safeParseFile(content: string): { url: string; name: string; size: number } {
+  try {
+    return JSON.parse(content) as { url: string; name: string; size: number };
+  } catch {
+    return { url: content, name: "File", size: 0 };
+  }
+}
+
+function formatFileBytes(b: number): string {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / 1048576).toFixed(1)} MB`;
 }
 
 const actionBtnStyle: React.CSSProperties = {
